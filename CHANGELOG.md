@@ -1,0 +1,34 @@
+# Changelog
+
+## 1.3.0
+- Rebuilt the Deck Selection settings window with Foundry's ApplicationV2 framework.
+- Fixed the issue where Foundry detected the deck but the Handlebars UI rendered an empty list.
+- Removed the deprecated FormApplication/V1 dependency.
+- Verified the selector logic against the user's Foundry 14.365 / D&D5e 5.3.3 console output.
+
+
+## 1.2.3
+- Reworked the deck selector to populate from the live `game.cards` collection after the settings window renders.
+- No longer depends on FormApplication template context for deck discovery.
+- Uses multiple Collection access fallbacks for Foundry v13/v14 compatibility.
+- Excludes Hands and Piles while allowing any other Card Stack to be selected.
+- Added stronger console diagnostics.
+
+
+## 1.2.2
+- Fixed deck selector rendering by making settings data synchronous.
+- Removed reliance on the Handlebars `checked` helper.
+- Added robust Cards stack type detection and a compatibility fallback.
+- Added detailed console diagnostics for detected Card Stacks.
+
+
+## 1.2.1
+- Fixed the deck selector showing an empty list on some Foundry installations.
+- Deck discovery now reads `game.cards.contents` explicitly.
+- Made selector data loading asynchronous for better FormApplication compatibility.
+- Added console diagnostics when opening the deck selector.
+
+## 1.2.0
+- Added checkbox-based multiple deck selection.
+- Added popup delay, chat speaker name, and GM popup settings.
+- Added keyboard-accessible card flipping.

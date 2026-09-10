@@ -1,0 +1,64 @@
+<div class="qv-deck-selector-form">
+  <p class="notes">
+    Select every Card Deck that should trigger Quest Viewer when one of its
+    cards is dealt into a Hand.
+  </p>
+
+  <div class="qv-selector-toolbar">
+    <div>
+      <strong><span data-qv-selected-count>{{selectedCount}}</span></strong>
+      selected
+    </div>
+
+    <div class="qv-selector-actions">
+      <button type="button" data-action="selectAll">
+        <i class="fa-solid fa-check-double"></i>
+        Select All
+      </button>
+
+      <button type="button" data-action="clearAll">
+        <i class="fa-solid fa-xmark"></i>
+        Clear
+      </button>
+    </div>
+  </div>
+
+  {{#if hasDecks}}
+    <div class="qv-deck-list">
+      {{#each decks}}
+        <label class="qv-deck-row">
+          {{#if selected}}
+            <input type="checkbox" class="qv-deck-checkbox" value="{{id}}" checked>
+          {{else}}
+            <input type="checkbox" class="qv-deck-checkbox" value="{{id}}">
+          {{/if}}
+
+          <span class="qv-deck-icon">
+            <i class="fa-solid fa-layer-group"></i>
+          </span>
+
+          <span class="qv-deck-info">
+            <strong>{{name}}</strong>
+            <small>{{cardCount}} cards</small>
+          </span>
+        </label>
+      {{/each}}
+    </div>
+  {{else}}
+    <div class="qv-empty-state">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <p><strong>No Card Decks were detected.</strong></p>
+      <p class="notes">
+        Quest Viewer reads the world Cards collection and lists stacks whose
+        type is <code>deck</code>.
+      </p>
+    </div>
+  {{/if}}
+
+  <footer class="qv-sheet-footer">
+    <button type="submit">
+      <i class="fa-solid fa-floppy-disk"></i>
+      Save Deck Selection
+    </button>
+  </footer>
+</div>
