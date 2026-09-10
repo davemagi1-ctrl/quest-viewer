@@ -3,19 +3,27 @@
   "title": "Quest Viewer",
   "description": "Display text-based card faces as readable quest cards when they are dealt to player hands. Select multiple decks, automatically show cards to their recipients, and optionally post their text to chat.",
   "version": "1.3.0",
+
   "authors": [
     {
       "name": "Dave Talimaa"
     }
   ],
+
   "compatibility": {
     "minimum": "13",
     "verified": "14"
   },
+
   "esmodules": [
     "scripts/quest-viewer.js"
   ],
+
   "styles": [
     "styles/quest-viewer.css"
-  ]
+  ],
+
+  "url": "https://github.com/davemagi1-ctrl/quest-viewer",
+  "manifest": "https://github.com/davemagi1-ctrl/quest-viewer/releases/latest/download/module.json",
+  "download": "https://github.com/davemagi1-ctrl/quest-viewer/releases/download/v1.3.0/quest-viewer-v1.3.0.zip"
 }
