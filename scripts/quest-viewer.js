@@ -5,8 +5,7 @@ const SELECTED_DECKS_KEY = "selectedDecks";
 /**
  * Deck selector settings submenu.
  *
- * Foundry still supports FormApplication-based settings submenus in v13,
- * and this approach also keeps the module compact and dependency-free.
+ * Uses ApplicationV2 for Foundry v13 and v14.
  */
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -431,3 +430,71 @@ Hooks.on("createCard", async (card, options, userId) => {
     console.error(`${MODULE_ID} | Quest Viewer error`, err);
   }
 });
+
+// Reopening a card is local and independent of the automatic GM popup setting.
+function canManuallyViewHand(hand) {
+  return hand?.documentName === "Cards" && hand.type === "hand"
+    && (game.user.isGM || hand.testUserPermission(game.user, "OWNER"));
+}
+
+// An older asynchronous render must not add controls after a newer render.
+const handRenderTokens = new WeakMap();
+
+async function addViewCardButtons(app, html) {
+  const hand = app.document ?? app.object;
+  if (hand?.documentName !== "Cards" || hand.type !== "hand") return;
+  const root = html?.querySelectorAll ? html : html?.[0];
+  if (!root) return;
+  const token = {};
+  handRenderTokens.set(app, token);
+  root.querySelectorAll(".qv-view-card").forEach(button => button.remove());
+  if (!canManuallyViewHand(hand)) return;
+
+  try {
+    for (const row of root.querySelectorAll("li[data-card-id]")) {
+      const cardId = row.dataset.cardId;
+      const card = hand.cards.get(cardId);
+      if (!card || !(await isConfiguredQuestCard(card))) continue;
+      if (handRenderTokens.get(app) !== token) return;
+      if (!root.contains(row) || !canManuallyViewHand(hand)
+        || hand.cards.get(cardId) !== card) continue;
+
+      const button = root.ownerDocument.createElement("button");
+      button.type = "button";
+      button.className = "qv-view-card";
+      button.textContent = "View Card";
+      button.setAttribute("aria-label", `View Card: ${card.name}`);
+      button.title = "Open this quest card";
+      button.addEventListener("click", async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          // Recheck the live hand: the card may have been returned or played,
+          // permissions changed, or its source deck deselected since rendering.
+          const current = hand.cards.get(cardId);
+          if (!canManuallyViewHand(hand) || !current
+            || !(await isConfiguredQuestCard(current))
+            || !canManuallyViewHand(hand) || hand.cards.get(cardId) !== current) {
+            ui.notifications.warn("This quest card is no longer available in this Hand. Reopen the Hand to refresh it.");
+            return;
+          }
+          await showQuestCard(current);
+        } catch (err) {
+          console.error(`${MODULE_ID} | Could not reopen quest card`, err);
+          ui.notifications.error("Quest Viewer could not open this card. See the console for details.");
+        } finally {
+          button.disabled = false;
+        }
+      });
+      row.append(button);
+    }
+  } catch (err) {
+    console.error(`${MODULE_ID} | Could not add View Card buttons`, err);
+  }
+}
+
+// v14 sheets use ApplicationV2; legacy v13 sheets pass a jQuery element.
+Hooks.on("renderApplicationV2", addViewCardButtons);
+Hooks.on("renderCardHand", addViewCardButtons);

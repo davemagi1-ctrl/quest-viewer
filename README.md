@@ -5,6 +5,7 @@ Cards as readable quest cards.
 
 ## Features
 
+- Reopen configured quest cards already in your Hand using **View Card**.
 - Choose multiple quest decks using a checkbox-based deck selector.
 - Automatically opens a readable parchment-style card when a configured card
   is dealt to a player-owned Hand.
@@ -37,6 +38,19 @@ Other settings control:
 A player must have **Owner** permission on the Hand receiving the card in order
 to receive the automatic popup.
 
+## Reopening cards (1.4.0)
+
+Open your Hand from the Cards sidebar and click **View Card** beside a quest
+card from a selected deck. The same parchment viewer opens, with front/back
+flipping. Reopening does not post another chat message, deal or modify the
+card, or open a popup for other users.
+
+Players need Owner permission on the Hand. GMs can reopen cards manually even
+when **Show Automatic Popup to GM** is disabled. Cards from unselected decks,
+source decks, and piles do not receive this button. Existing deck selections
+and automatic popup/chat settings are preserved. After changing deck selection,
+close and reopen an already-open Hand to refresh its buttons.
+
 ## Card content
 
 Quest Viewer reads:
@@ -49,3 +63,24 @@ Quest Viewer reads:
 
 Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
 **Quest Viewer** in Manage Modules, then reload the world.
+
+The ZIP filename is `quest-viewer-v1.4.0.zip`; its inner directory remains
+`quest-viewer`, matching the module ID. Existing world settings are retained.
+
+For a GitHub release, attach both this ZIP and the supplied `module.json` to
+tag `v1.4.0`. The manifest download URL targets that release and becomes usable
+after those assets are published.
+
+## Validation for 1.4.0
+
+JavaScript syntax and 25 browser-based checks passed using the installed
+Foundry 14.365 Hand template and simulated Foundry documents/hooks. Checks
+cover both selected decks, ownership, stale cards, repeated rendering,
+front/back flipping, and automatic popup/chat behavior. The pre-existing
+settings, migration, viewer, and automatic deal code are unchanged.
+
+This package has not been tested in a running Foundry world; v13's legacy
+render hook was simulated. The existing v13/v14 compatibility declaration is
+retained. Before using in a session, open a player-owned Hand containing a
+configured card as that player, click View Card, flip it, and confirm no new
+chat post appears. Then deal another card to check your automatic preferences.

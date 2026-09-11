@@ -207,3 +207,14 @@
 .qv-sheet-footer button {
   width: 100%;
 }
+
+/* Keep the label visible without changing Foundry's existing card controls. */
+button.qv-view-card {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 28px;
+  margin: 2px 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}

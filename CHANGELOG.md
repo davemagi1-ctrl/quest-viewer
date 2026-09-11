@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+- Added a View Card button beside configured quest cards already in owned Hands.
+- Reuses the existing parchment viewer and front/back flipping without repeating chat posts.
+- Allows GM manual viewing independently of the automatic GM popup preference.
+- Rechecks hand ownership, card presence, and deck selection when clicked.
+- Preserves automatic dealing behavior, multi-deck settings, and legacy migration.
+- Packages the module in a top-level quest-viewer directory.
+
 ## 1.3.0
 - Rebuilt the Deck Selection settings window with Foundry's ApplicationV2 framework.
 - Fixed the issue where Foundry detected the deck but the Handlebars UI rendered an empty list.
