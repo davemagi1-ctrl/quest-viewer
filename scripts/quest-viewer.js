@@ -359,6 +359,46 @@ async function postQuestToChat(card) {
   });
 }
 
+const QUEST_STATUSES = { active: "Active", completed: "Completed", failed: "Failed" };
+
+function getQuestStatus(card) {
+  const status = card.getFlag?.(MODULE_ID, "status");
+  return Object.hasOwn(QUEST_STATUSES, status) ? status : "active";
+}
+
+function statusBadgeHTML(card) {
+  const status = getQuestStatus(card);
+  return `<span class="qv-status-badge qv-status-${status}" aria-label="Quest status: ${QUEST_STATUSES[status]}">${QUEST_STATUSES[status]}</span>`;
+}
+
+async function setQuestStatus(card, status) {
+  if (!game.user.isGM) throw new Error("Only the GM can change quest status using Quest Viewer.");
+  if (!Object.hasOwn(QUEST_STATUSES, status)) throw new Error("Invalid quest status.");
+  if (card.parent?.cards.get(card.id) !== card || !(await isConfiguredQuestCard(card))) {
+    throw new Error("This quest card is no longer available.");
+  }
+  if (!game.user.isGM || card.parent.cards.get(card.id) !== card) throw new Error("This quest card is no longer available.");
+  await card.setFlag(MODULE_ID, "status", status);
+}
+
+const questViewers = new Map();
+function sameQuestCard(a, b) {
+  return a === b || (a.uuid && a.uuid === b.uuid);
+}
+Hooks.on("updateCard", card => {
+  for (const entry of questViewers.values()) {
+    if (sameQuestCard(entry.card, card)) entry.refresh();
+  }
+});
+Hooks.on("deleteCard", card => {
+  for (const [viewer, entry] of questViewers) {
+    if (sameQuestCard(entry.card, card)) {
+      questViewers.delete(viewer);
+      viewer.close();
+    }
+  }
+});
+
 function buildCardHTML(card, showingFront) {
   const text = showingFront ? getFaceText(card) : getBackText(card);
   const title = showingFront ? card.name : (card.back?.name || "Quest");
@@ -368,6 +408,7 @@ function buildCardHTML(card, showingFront) {
       <article class="qv-card${showingFront ? "" : " qv-card--back"}${!showingFront && !card.back?.text ? " qv-card--sealed" : ""}" data-qv-flip role="button" tabindex="0"
                aria-label="Flip ${escapeHTML(card.name)}">
         <header class="qv-card-title">${escapeHTML(title)}</header>
+        <div class="qv-status-display" aria-live="polite">${statusBadgeHTML(card)}</div>
         <section class="qv-card-body">${text}</section>
         <footer class="qv-card-footer">• QUEST •</footer>
         <div class="qv-card-hint">
@@ -375,6 +416,10 @@ function buildCardHTML(card, showingFront) {
           Click to flip
         </div>
       </article>
+      ${game.user.isGM ? `<label class="qv-status-control">Quest status
+        <select aria-label="Quest status" data-qv-status>
+          ${Object.entries(QUEST_STATUSES).map(([value, label]) => `<option value="${value}"${value === getQuestStatus(card) ? " selected" : ""}>${label}</option>`).join("")}
+        </select></label>` : ""}
     </div>
   `;
 }
@@ -403,6 +448,18 @@ async function showQuestCard(card) {
       const currentWrapper = dialog.element.querySelector(".qv-viewer-wrapper");
       if (currentWrapper) currentWrapper.outerHTML = buildCardHTML(card, showingFront);
       const attachFlip = () => {
+        const statusSelect = dialog.element.querySelector("[data-qv-status]");
+        statusSelect?.addEventListener("change", async () => {
+          statusSelect.disabled = true;
+          try {
+            await setQuestStatus(card, statusSelect.value);
+            refresh();
+          } catch (err) {
+            console.error(`${MODULE_ID} | Status update failed`, err);
+            ui.notifications.error(err.message);
+            statusSelect.value = getQuestStatus(card);
+          } finally { statusSelect.disabled = false; }
+        });
         const element = dialog.element.querySelector("[data-qv-flip]");
         if (!element) return;
 
@@ -429,6 +486,12 @@ async function showQuestCard(card) {
       attachFlip();
   });
 
+  const refresh = () => {
+    // Rebuild from the live document while retaining the side currently shown.
+    viewer.render({ force: true });
+  };
+  questViewers.set(viewer, { card, refresh });
+  viewer.addEventListener("close", () => questViewers.delete(viewer), { once: true });
   viewer.render({ force: true });
 }
 
@@ -472,7 +535,7 @@ async function addViewCardButtons(app, html) {
   if (!root) return;
   const token = {};
   handRenderTokens.set(app, token);
-  root.querySelectorAll(".qv-view-card").forEach(button => button.remove());
+  root.querySelectorAll(".qv-view-card, .qv-hand-status").forEach(button => button.remove());
   if (!canManuallyViewHand(hand)) return;
 
   try {
@@ -514,6 +577,10 @@ async function addViewCardButtons(app, html) {
         }
       });
       row.append(button);
+      const badge = root.ownerDocument.createElement("span");
+      badge.className = "qv-hand-status";
+      badge.innerHTML = statusBadgeHTML(card);
+      row.append(badge);
     }
   } catch (err) {
     console.error(`${MODULE_ID} | Could not add View Card buttons`, err);

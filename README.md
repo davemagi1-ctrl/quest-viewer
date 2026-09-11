@@ -33,6 +33,22 @@ Other settings control:
 - Popup delay
 - Chat speaker name
 
+## Quest status (1.6.0)
+
+Open a quest card using View Card. As GM, use the **Quest status** dropdown
+below it to choose **Active**, **Completed**, or **Failed**. Players see the
+badge in the viewer and in their owned Hand; Quest Viewer only provides the
+editing control to GMs. Existing cards start as Active without a migration.
+
+Status is stored in `flags.quest-viewer.status` on that specific card.
+Separate dealt copies have independent progress. Moving a card carries its
+flags according to Foundry's normal card transfer behavior; returning a card
+does not synchronize its status to the original source-deck card. Re-dealing
+uses the original card's data. This is per-card tracking, not a shared quest log.
+
+Open viewers update when Foundry sends a card update. Status changes do not
+post to chat or change automatic popup settings. Chat history remains unchanged.
+
 ## Player permissions
 
 A player must have **Owner** permission on the Hand receiving the card in order
@@ -51,7 +67,7 @@ source decks, and piles do not receive this button. Existing deck selections
 and automatic popup/chat settings are preserved. After changing deck selection,
 close and reopen an already-open Hand to refresh its buttons.
 
-## Card back design (1.5.0)
+## Card back design (1.6.0)
 
 The reverse uses dark green leather styling and gold ornamentation. Cards without back text show a compass seal and QUEST title. Custom back text is preserved in cream on the dark background. All ornamentation uses CSS; no external assets are needed.
 
@@ -68,16 +84,16 @@ Quest Viewer reads:
 Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
 **Quest Viewer** in Manage Modules, then reload the world.
 
-The ZIP filename is `quest-viewer-v1.5.0.zip`; its inner directory remains
+The ZIP filename is `quest-viewer-v1.6.0.zip`; its inner directory remains
 `quest-viewer`, matching the module ID. Existing world settings are retained.
 
 For a GitHub release, attach both this ZIP and the supplied `module.json` to
-tag `v1.5.0`. The manifest download URL targets that release and becomes usable
+tag `v1.6.0`. The manifest download URL targets that release and becomes usable
 after those assets are published.
 
-## Validation for 1.5.0
+## Validation for 1.6.0
 
-JavaScript syntax and 40 browser-based checks passed using the installed
+JavaScript syntax and 57 browser-based checks passed using the installed
 Foundry 14.365 Hand template and simulated Foundry documents/hooks. Checks
 cover both selected decks, ownership, stale cards, repeated rendering,
 front/back flipping, and automatic popup/chat behavior. The pre-existing

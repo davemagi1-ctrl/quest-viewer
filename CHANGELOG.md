@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+- Added Active, Completed, and Failed badges to the viewer and configured cards in owned Hands.
+- GMs can change status from a dropdown below the card; existing cards default to Active.
+- Saves status on each card using a module flag. Separate copies have independent progress.
+- Open viewers refresh when their card updates and close when it is removed.
+- Status changes do not post chat messages or change the visible side.
+- Retains the published 1.5.0 card-back design; the cancelled custom-back alteration is not included.
+
 ## 1.5.0
 - Added a dark green leather-style card back with gold borders and a compass seal.
 - Default backs display QUEST and "A tale yet to be told"; custom back text remains visible in the new theme.
