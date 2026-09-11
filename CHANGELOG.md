@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.2
+- Fixed inactive Click to flip by attaching handlers to the DialogV2 render event.
+- Preserve the visible side after a dialog rerender and keyboard focus after flipping.
+- Corrected the dialog test double to emit Foundry's render event instead of invoking an unsupported constructor callback.
+- Preserved source-deck matching, View Card controls, and automatic popup/chat behavior.
+
 ## 1.4.1
 - Fixed `uuid.split is not a function` when Foundry supplies a Cards document as a card's source/origin.
 - Match the source deck directly; only pass actual UUID strings to fromUuid.

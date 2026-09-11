@@ -390,13 +390,20 @@ async function showQuestCard(card) {
       action: "close",
       label: "Close",
       icon: "fa-solid fa-xmark"
-    }],
-    render: (event, dialog) => {
+    }]
+  });
+
+  // Direct DialogV2 instances emit a render event. The render callback option
+  // is only wired up by DialogV2.wait/prompt/confirm, not by the constructor.
+  viewer.addEventListener("render", () => {
+      const dialog = viewer;
+      const currentWrapper = dialog.element.querySelector(".qv-viewer-wrapper");
+      if (currentWrapper) currentWrapper.outerHTML = buildCardHTML(card, showingFront);
       const attachFlip = () => {
         const element = dialog.element.querySelector("[data-qv-flip]");
         if (!element) return;
 
-        const flip = () => {
+        const flip = (restoreFocus = false) => {
           showingFront = !showingFront;
 
           const wrapper = dialog.element.querySelector(".qv-viewer-wrapper");
@@ -404,19 +411,19 @@ async function showQuestCard(card) {
 
           wrapper.outerHTML = buildCardHTML(card, showingFront);
           attachFlip();
+          if (restoreFocus) dialog.element.querySelector("[data-qv-flip]")?.focus();
         };
 
-        element.addEventListener("click", flip);
+        element.addEventListener("click", () => flip());
         element.addEventListener("keydown", event => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            flip();
+            flip(true);
           }
         });
       };
 
       attachFlip();
-    }
   });
 
   viewer.render({ force: true });
