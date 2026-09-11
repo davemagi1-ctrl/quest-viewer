@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1
+- Fixed `uuid.split is not a function` when Foundry supplies a Cards document as a card's source/origin.
+- Match the source deck directly; only pass actual UUID strings to fromUuid.
+- Preserve deck ID and UUID support for older/custom workflows.
+- Prevent cards with a known unselected source from matching a selected deck by name.
+- Added regression coverage for document origins, renamed cards, and duplicate names.
+
 ## 1.4.0
 - Added a View Card button beside configured quest cards already in owned Hands.
 - Reuses the existing parchment viewer and front/back flipping without repeating chat posts.

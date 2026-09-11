@@ -286,16 +286,31 @@ async function isConfiguredQuestCard(card) {
   const selected = new Set(getSelectedDeckIds());
   if (!selected.size) return false;
 
-  // Most reliable case: a dealt card retains an origin UUID.
-  if (card.origin) {
+  // Foundry's source/origin is a Cards document, not a UUID string.
+  const source = card.source ?? card.origin;
+  if (source && typeof source === "object" && source.id) {
+    return source.type === "deck" && selected.has(source.id);
+  }
+
+  // Retain support for older/custom workflows with a deck ID or UUID.
+  const origin = typeof source === "string" ? source : card._source?.origin;
+  if (typeof origin === "string" && origin) {
+    const deck = game.cards?.get(origin);
+    if (deck) return deck.type === "deck" && selected.has(deck.id);
+
+    // Standard world UUIDs identify the deck even if its document is unavailable.
+    const deckId = /^Cards\.([^.]+)(?:\.Card\.[^.]+)?$/.exec(origin)?.[1];
+    if (deckId) return selected.has(deckId);
+    if (!origin.includes(".")) return selected.has(origin);
     try {
-      const original = await fromUuid(card.origin);
-      if (original?.parent?.id && selected.has(original.parent.id)) {
-        return true;
-      }
+      const original = await fromUuid(origin);
+      const originalDeck = original?.documentName === "Cards" ? original : original?.parent;
+      if (originalDeck?.id) return originalDeck.type === "deck" && selected.has(originalDeck.id);
     } catch (err) {
       console.warn(`${MODULE_ID} | Could not resolve card origin`, err);
     }
+    // A known origin must not match an unrelated selected deck by card name.
+    return false;
   }
 
   // Fallback for systems/workflows that do not preserve origin as expected.
