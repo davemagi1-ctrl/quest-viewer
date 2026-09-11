@@ -51,6 +51,10 @@ source decks, and piles do not receive this button. Existing deck selections
 and automatic popup/chat settings are preserved. After changing deck selection,
 close and reopen an already-open Hand to refresh its buttons.
 
+## Card back design (1.5.0)
+
+The reverse uses dark green leather styling and gold ornamentation. Cards without back text show a compass seal and QUEST title. Custom back text is preserved in cream on the dark background. All ornamentation uses CSS; no external assets are needed.
+
 ## Card content
 
 Quest Viewer reads:
@@ -64,14 +68,14 @@ Quest Viewer reads:
 Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
 **Quest Viewer** in Manage Modules, then reload the world.
 
-The ZIP filename is `quest-viewer-v1.4.2.zip`; its inner directory remains
+The ZIP filename is `quest-viewer-v1.5.0.zip`; its inner directory remains
 `quest-viewer`, matching the module ID. Existing world settings are retained.
 
 For a GitHub release, attach both this ZIP and the supplied `module.json` to
-tag `v1.4.2`. The manifest download URL targets that release and becomes usable
+tag `v1.5.0`. The manifest download URL targets that release and becomes usable
 after those assets are published.
 
-## Validation for 1.4.2
+## Validation for 1.5.0
 
 JavaScript syntax and 40 browser-based checks passed using the installed
 Foundry 14.365 Hand template and simulated Foundry documents/hooks. Checks

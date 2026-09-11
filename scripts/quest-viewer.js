@@ -276,8 +276,11 @@ function getFaceText(card) {
 function getBackText(card) {
   return card.back?.text || `
     <div class="qv-default-back">
+      <div class="qv-back-kicker">THE ADVENTURER'S CALL</div>
+      <div class="qv-back-seal" aria-hidden="true"><span></span></div>
       <h1>QUEST</h1>
-      <p>Quest Card</p>
+      <div class="qv-back-rule" aria-hidden="true">◆</div>
+      <p>A tale yet to be told</p>
     </div>
   `;
 }
@@ -362,7 +365,7 @@ function buildCardHTML(card, showingFront) {
 
   return `
     <div class="qv-viewer-wrapper">
-      <article class="qv-card" data-qv-flip role="button" tabindex="0"
+      <article class="qv-card${showingFront ? "" : " qv-card--back"}${!showingFront && !card.back?.text ? " qv-card--sealed" : ""}" data-qv-flip role="button" tabindex="0"
                aria-label="Flip ${escapeHTML(card.name)}">
         <header class="qv-card-title">${escapeHTML(title)}</header>
         <section class="qv-card-body">${text}</section>

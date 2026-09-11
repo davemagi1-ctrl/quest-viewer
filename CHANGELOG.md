@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+- Added a dark green leather-style card back with gold borders and a compass seal.
+- Default backs display QUEST and "A tale yet to be told"; custom back text remains visible in the new theme.
+- Drawn entirely with CSS, with no external artwork, fonts, or downloads required.
+- Preserves the parchment front, flipping, View Card controls, and automatic popup/chat behavior.
+
 ## 1.4.2
 - Fixed inactive Click to flip by attaching handlers to the DialogV2 render event.
 - Preserve the visible side after a dialog rerender and keyboard focus after flipping.

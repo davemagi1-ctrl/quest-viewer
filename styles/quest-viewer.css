@@ -74,7 +74,130 @@
 
 .qv-default-back {
   text-align: center;
-  padding-top: 120px;
+  padding: 30px 0 18px;
+}
+
+/* Embossed leather and gilded compass, drawn entirely with CSS. */
+.qv-card--back {
+  position: relative;
+  isolation: isolate;
+  color: #ecd9ae;
+  border-color: #b39050;
+  background:
+    radial-gradient(ellipse at 50% 35%, #36504b55, transparent 65%),
+    repeating-linear-gradient(35deg, #ffffff03 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(125deg, #00000018 0 1px, transparent 1px 5px),
+    linear-gradient(150deg, #192d2b, #0d1a19 70%, #142723);
+  box-shadow: 0 12px 35px #000a, inset 0 0 0 5px #14231e,
+    inset 0 0 0 6px #8c7041, inset 0 0 45px #0009;
+}
+
+.qv-card--back::before,
+.qv-card--back::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.qv-card--back::before {
+  inset: 17px;
+  border: 1px solid #b3905070;
+  background:
+    linear-gradient(#c7a762, #c7a762) left top / 28px 3px no-repeat,
+    linear-gradient(#c7a762, #c7a762) left top / 3px 28px no-repeat,
+    linear-gradient(#c7a762, #c7a762) right top / 28px 3px no-repeat,
+    linear-gradient(#c7a762, #c7a762) right top / 3px 28px no-repeat,
+    linear-gradient(#c7a762, #c7a762) left bottom / 28px 3px no-repeat,
+    linear-gradient(#c7a762, #c7a762) left bottom / 3px 28px no-repeat,
+    linear-gradient(#c7a762, #c7a762) right bottom / 28px 3px no-repeat,
+    linear-gradient(#c7a762, #c7a762) right bottom / 3px 28px no-repeat;
+}
+
+.qv-card--back::after {
+  inset: 25px;
+  border: 1px solid #b390502b;
+  border-radius: 55px 0 55px 0;
+}
+
+.qv-card--back .qv-card-title { color: #e4c98f; border-color: #b3905066; }
+.qv-card--back .qv-card-body { color: #ecd9ae; }
+.qv-card--back .qv-card-body a { color: #f4cd7b; }
+.qv-card--back .qv-card-hint { color: #d7c39a; opacity: 0.85; }
+.qv-card--sealed .qv-card-title,
+.qv-card--sealed .qv-card-footer { display: none; }
+.qv-card--sealed .qv-card-hint { margin-top: 22px; }
+
+.qv-back-kicker {
+  color: #c6ad79;
+  font-size: 10px;
+  letter-spacing: 3px;
+  line-height: 1.6;
+}
+
+.qv-back-seal {
+  position: relative;
+  width: 178px;
+  height: 178px;
+  margin: 36px auto 30px;
+  border: 1px solid #c7a762;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px #152522, 0 0 0 7px #9b7e4655,
+    inset 0 0 0 9px #152522, inset 0 0 0 10px #9b7e4688;
+  background: repeating-conic-gradient(from -0.5deg, #c6a56088 0deg 1deg, transparent 1deg 15deg);
+}
+
+.qv-back-seal::before {
+  content: "";
+  position: absolute;
+  inset: 22px;
+  border: 1px solid #a98a4c99;
+  background: #152623;
+  transform: rotate(45deg);
+}
+
+.qv-back-seal span {
+  position: absolute;
+  inset: 15px;
+  background: conic-gradient(from 0deg, #fae5b0, #a07a36, #e5c783, #86612a, #fae5b0);
+  clip-path: polygon(50% 0%, 57% 36%, 80% 20%, 64% 43%, 100% 50%, 64% 57%, 80% 80%, 57% 64%, 50% 100%, 43% 64%, 20% 80%, 36% 57%, 0% 50%, 36% 43%, 20% 20%, 43% 36%);
+}
+
+.qv-default-back h1 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #ecd49c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 42px;
+  font-weight: normal;
+  letter-spacing: 9px;
+  text-indent: 9px;
+  text-shadow: 0 2px 3px #000;
+}
+
+.qv-back-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  margin: 10px auto 13px;
+  color: #c6a560;
+  font-size: 10px;
+}
+
+.qv-back-rule::before, .qv-back-rule::after {
+  content: "";
+  width: 54px;
+  height: 1px;
+  background: #a88a4b88;
+}
+
+.qv-default-back p {
+  color: #bfac88;
+  font-size: 15px;
+  font-style: italic;
+  letter-spacing: 1px;
 }
 
 /* --------------------------------------------------------- */
