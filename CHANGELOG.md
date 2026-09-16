@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0
+- Added a GM setup button for a shared Conditions — 2024 reference deck containing all 15 conditions.
+- Players with Observer access can open condition cards directly from the deck without dealing.
+- Condition cards use a readable reference layout without quest badges or flipping.
+- Includes revised Exhaustion rules and expanded Incapacitated reminders, adapted from SRD 5.2.1 with CC BY 4.0 attribution.
+- Preserves quest deck selections, statuses, automatic popups, and chat behavior.
+
 ## 1.6.0
 - Added Active, Completed, and Failed badges to the viewer and configured cards in owned Hands.
 - GMs can change status from a dropdown below the card; existing cards default to Active.

@@ -27,6 +27,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
     },
     actions: {
       selectAll: QuestViewerDeckSelector.#onSelectAll,
+      createConditions: QuestViewerDeckSelector.#onCreateConditions,
       clearAll: QuestViewerDeckSelector.#onClearAll
     }
   };
@@ -113,6 +114,18 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
       input.checked = false;
     });
     app.#updateCounter();
+  }
+
+  static async #onCreateConditions(event, target) {
+    target.disabled = true;
+    try {
+      const deck = await createConditionsDeck();
+      deck.sheet.render({ force: true });
+      ui.notifications.info("Conditions deck ready. Players can open it in Cards and choose View Card.");
+    } catch (err) {
+      console.error(`${MODULE_ID} | Conditions deck setup failed`, err);
+      ui.notifications.error("Could not create the Conditions deck. See the console for details.");
+    } finally { target.disabled = false; }
   }
 
   static async #onSubmit(event, form, formData) {
@@ -400,6 +413,14 @@ Hooks.on("deleteCard", card => {
 });
 
 function buildCardHTML(card, showingFront) {
+  if (isConditionCard(card)) return `
+    <div class="qv-viewer-wrapper">
+      <article class="qv-card qv-card--condition" aria-label="${escapeHTML(card.name)} condition">
+        <div class="qv-condition-edition">CONDITION • 2024 RULES</div>
+        <header class="qv-card-title">${escapeHTML(card.name)}</header>
+        <section class="qv-card-body">${getFaceText(card)}</section>
+      </article>
+    </div>`;
   const text = showingFront ? getFaceText(card) : getBackText(card);
   const title = showingFront ? card.name : (card.back?.name || "Quest");
 
@@ -521,8 +542,11 @@ Hooks.on("createCard", async (card, options, userId) => {
 
 // Reopening a card is local and independent of the automatic GM popup setting.
 function canManuallyViewHand(hand) {
-  return hand?.documentName === "Cards" && hand.type === "hand"
-    && (game.user.isGM || hand.testUserPermission(game.user, "OWNER"));
+  if (hand?.documentName !== "Cards") return false;
+  if (hand.type === "deck" && isConditionsDeck(hand)) {
+    return game.user.isGM || hand.testUserPermission(game.user, "OBSERVER");
+  }
+  return hand.type === "hand" && (game.user.isGM || hand.testUserPermission(game.user, "OWNER"));
 }
 
 // An older asynchronous render must not add controls after a newer render.
@@ -530,7 +554,7 @@ const handRenderTokens = new WeakMap();
 
 async function addViewCardButtons(app, html) {
   const hand = app.document ?? app.object;
-  if (hand?.documentName !== "Cards" || hand.type !== "hand") return;
+  if (hand?.documentName !== "Cards" || !["hand", "deck"].includes(hand.type)) return;
   const root = html?.querySelectorAll ? html : html?.[0];
   if (!root) return;
   const token = {};
@@ -542,7 +566,7 @@ async function addViewCardButtons(app, html) {
     for (const row of root.querySelectorAll("li[data-card-id]")) {
       const cardId = row.dataset.cardId;
       const card = hand.cards.get(cardId);
-      if (!card || !(await isConfiguredQuestCard(card))) continue;
+      if (!card || !(isConditionCard(card) || await isConfiguredQuestCard(card))) continue;
       if (handRenderTokens.get(app) !== token) return;
       if (!root.contains(row) || !canManuallyViewHand(hand)
         || hand.cards.get(cardId) !== card) continue;
@@ -552,7 +576,7 @@ async function addViewCardButtons(app, html) {
       button.className = "qv-view-card";
       button.textContent = "View Card";
       button.setAttribute("aria-label", `View Card: ${card.name}`);
-      button.title = "Open this quest card";
+      button.title = "Open this card";
       button.addEventListener("click", async event => {
         event.preventDefault();
         event.stopPropagation();
@@ -563,9 +587,9 @@ async function addViewCardButtons(app, html) {
           // permissions changed, or its source deck deselected since rendering.
           const current = hand.cards.get(cardId);
           if (!canManuallyViewHand(hand) || !current
-            || !(await isConfiguredQuestCard(current))
+            || !(isConditionCard(current) || await isConfiguredQuestCard(current))
             || !canManuallyViewHand(hand) || hand.cards.get(cardId) !== current) {
-            ui.notifications.warn("This quest card is no longer available in this Hand. Reopen the Hand to refresh it.");
+            ui.notifications.warn("This card is no longer available. Reopen the card stack to refresh it.");
             return;
           }
           await showQuestCard(current);
@@ -577,6 +601,7 @@ async function addViewCardButtons(app, html) {
         }
       });
       row.append(button);
+      if (isConditionCard(card)) continue;
       const badge = root.ownerDocument.createElement("span");
       badge.className = "qv-hand-status";
       badge.innerHTML = statusBadgeHTML(card);
@@ -590,3 +615,121 @@ async function addViewCardButtons(app, html) {
 // v14 sheets use ApplicationV2; legacy v13 sheets pass a jQuery element.
 Hooks.on("renderApplicationV2", addViewCardButtons);
 Hooks.on("renderCardHand", addViewCardButtons);
+Hooks.on("renderCardDeckConfig", addViewCardButtons);
+
+// Adapted from SRD 5.2.1 (CC BY 4.0). See RULES-LICENSE.md.
+const CONDITION_ATTRIBUTION = `This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at <a href="https://www.dndbeyond.com/srd" target="_blank" rel="noopener noreferrer">https://www.dndbeyond.com/srd</a>. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener noreferrer">https://creativecommons.org/licenses/by/4.0/legalcode</a>.`;
+const INCAPACITATED_REMINDER = "<strong>Incapacitated.</strong> You cannot take actions, Bonus Actions, or Reactions. Your Concentration breaks, you cannot speak, and you have Disadvantage on Initiative rolls.";
+const CONDITIONS_2024 = [
+  { name: "Blinded", effects: [
+    "<strong>Sight.</strong> You cannot see. You automatically fail ability checks that require sight.",
+    "<strong>Attacks.</strong> Your attack rolls have Disadvantage. Attack rolls against you have Advantage."
+  ] },
+  { name: "Charmed", effects: [
+    "<strong>The charmer.</strong> You cannot attack the charmer or target them with damaging abilities or magical effects.",
+    "<strong>Social interaction.</strong> The charmer has Advantage on ability checks to interact with you socially."
+  ] },
+  { name: "Deafened", effects: [
+    "<strong>Hearing.</strong> You cannot hear. You automatically fail ability checks that require hearing."
+  ] },
+  { name: "Exhaustion", effects: [
+    "<strong>Levels.</strong> Each time you gain Exhaustion, add 1 level. At level 6, you die.",
+    "<strong>D20 Tests.</strong> Subtract twice your Exhaustion level from ability checks, attack rolls, and saving throws.",
+    "<strong>Speed.</strong> Reduce your Speed by 5 feet per Exhaustion level.",
+    "<strong>Recovery.</strong> Finishing a Long Rest removes 1 level. At level 0, this condition ends. Specific effects can restrict recovery."
+  ] },
+  { name: "Frightened", effects: [
+    "<strong>Checks and attacks.</strong> Your ability checks and attack rolls have Disadvantage while the source of your fear is within line of sight.",
+    "<strong>Approaching.</strong> You cannot willingly move closer to the source of your fear."
+  ] },
+  { name: "Grappled", effects: [
+    "<strong>Speed.</strong> Your Speed is 0 and cannot increase.",
+    "<strong>Attacks.</strong> Your attack rolls have Disadvantage against everyone except the creature grappling you.",
+    "<strong>Being moved.</strong> The grappler can drag or carry you. Each foot it moves costs an extra foot, unless you are Tiny or at least two sizes smaller than it."
+  ] },
+  { name: "Incapacitated", effects: [INCAPACITATED_REMINDER] },
+  { name: "Invisible", effects: [
+    "<strong>Initiative.</strong> You have Advantage on Initiative rolls.",
+    "<strong>Concealment.</strong> Effects that require seeing their target cannot affect you unless their creator can see you. Your worn and carried equipment is also concealed.",
+    "<strong>Attacks.</strong> Your attack rolls have Advantage, and attack rolls against you have Disadvantage. Neither benefit applies against a creature that can see you."
+  ] },
+  { name: "Paralyzed", effects: [
+    INCAPACITATED_REMINDER,
+    "<strong>Speed.</strong> Your Speed is 0 and cannot increase.",
+    "<strong>Saving throws.</strong> You automatically fail Strength and Dexterity saving throws.",
+    "<strong>Attacks.</strong> Attack rolls against you have Advantage. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you."
+  ] },
+  { name: "Petrified", effects: [
+    "<strong>Transformation.</strong> You and your nonmagical worn and carried objects become solid, inanimate material, usually stone. Your weight becomes ten times normal, and you stop aging.",
+    INCAPACITATED_REMINDER,
+    "<strong>Speed.</strong> Your Speed is 0 and cannot increase.",
+    "<strong>Attacks and saves.</strong> Attack rolls against you have Advantage. You automatically fail Strength and Dexterity saving throws.",
+    "<strong>Protection.</strong> You have Resistance to all damage and Immunity to the Poisoned condition."
+  ] },
+  { name: "Poisoned", effects: [
+    "<strong>Checks and attacks.</strong> You have Disadvantage on ability checks and attack rolls."
+  ] },
+  { name: "Prone", effects: [
+    "<strong>Movement.</strong> You can crawl, or spend movement equal to half your Speed (round down) to stand and end this condition. You cannot stand this way if your Speed is 0.",
+    "<strong>Your attacks.</strong> Your attack rolls have Disadvantage.",
+    "<strong>Attacks against you.</strong> Attack rolls have Advantage if the attacker is within 5 feet of you; otherwise, they have Disadvantage."
+  ] },
+  { name: "Restrained", effects: [
+    "<strong>Speed.</strong> Your Speed is 0 and cannot increase.",
+    "<strong>Attacks.</strong> Your attack rolls have Disadvantage. Attack rolls against you have Advantage.",
+    "<strong>Saving throws.</strong> You have Disadvantage on Dexterity saving throws."
+  ] },
+  { name: "Stunned", effects: [
+    INCAPACITATED_REMINDER,
+    "<strong>Saving throws.</strong> You automatically fail Strength and Dexterity saving throws.",
+    "<strong>Attacks.</strong> Attack rolls against you have Advantage."
+  ] },
+  { name: "Unconscious", effects: [
+    INCAPACITATED_REMINDER,
+    "<strong>Fallen.</strong> You also have the Prone condition and drop whatever you are holding. You remain Prone when Unconscious ends.",
+    "<strong>Speed and awareness.</strong> Your Speed is 0 and cannot increase. You are unaware of your surroundings.",
+    "<strong>Saving throws.</strong> You automatically fail Strength and Dexterity saving throws.",
+    "<strong>Attacks.</strong> Attack rolls against you have Advantage. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you. Apply Prone and any other sources of Advantage or Disadvantage as usual."
+  ] }
+];
+
+function isConditionsDeck(deck) {
+  return deck?.getFlag?.(MODULE_ID, "conditionsReference") === "2024";
+}
+
+function isConditionCard(card) {
+  return card?.getFlag?.(MODULE_ID, "conditionRules") === "2024" || isConditionsDeck(card?.parent);
+}
+
+function conditionCardData(condition, index) {
+  const text = `<ul class="qv-condition-effects">${condition.effects.map(effect => `<li>${effect}</li>`).join("")}</ul>
+    <p class="qv-condition-note">The effect causing a condition determines its duration and how it ends. Specific rules can override these general effects.</p>
+    <details class="qv-rules-credit"><summary>Rules source &amp; license</summary><p>Adapted and summarized for these cards; related Incapacitated effects are expanded for convenience.</p><p>${CONDITION_ATTRIBUTION}</p></details>`;
+  return {
+    name: condition.name, description: text, face: 0, sort: (index + 1) * 100000,
+    faces: [{ name: condition.name, text, img: "icons/svg/book.svg" }],
+    flags: { [MODULE_ID]: { conditionRules: "2024" } }
+  };
+}
+
+let conditionsDeckCreation;
+async function createConditionsDeck() {
+  if (!game.user.isGM) throw new Error("Only a GM can create the Conditions deck.");
+  if (conditionsDeckCreation) return conditionsDeckCreation;
+  conditionsDeckCreation = (async () => {
+    const decks = Array.from(game.cards?.contents ?? game.cards?.values() ?? []);
+    const existing = decks.find(deck => deck.type === "deck" && isConditionsDeck(deck));
+    // Never overwrite a GM's card edits or permission changes when reopening.
+    if (existing) return existing;
+    const CardsClass = getDocumentClass("Cards");
+    return CardsClass.create({
+      name: "Conditions — 2024", type: "deck", img: "icons/svg/book.svg",
+      description: `<p>Open this deck in Cards and choose View Card to read a condition. Compatible with fifth edition (2024 rules).</p><p>${CONDITION_ATTRIBUTION}</p>`,
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+      flags: { [MODULE_ID]: { conditionsReference: "2024" } },
+      cards: CONDITIONS_2024.map(conditionCardData)
+    });
+  })();
+  try { return await conditionsDeckCreation; }
+  finally { conditionsDeckCreation = null; }
+}

@@ -63,7 +63,7 @@ card, or open a popup for other users.
 
 Players need Owner permission on the Hand. GMs can reopen cards manually even
 when **Show Automatic Popup to GM** is disabled. Cards from unselected decks,
-source decks, and piles do not receive this button. Existing deck selections
+ordinary source decks, and piles do not receive this button. The shared Conditions deck is an exception (see below). Existing deck selections
 and automatic popup/chat settings are preserved. After changing deck selection,
 close and reopen an already-open Hand to refresh its buttons.
 
@@ -84,11 +84,11 @@ Quest Viewer reads:
 Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
 **Quest Viewer** in Manage Modules, then reload the world.
 
-The ZIP filename is `quest-viewer-v1.6.0.zip`; its inner directory remains
+The ZIP filename is `quest-viewer-v1.7.0.zip`; its inner directory remains
 `quest-viewer`, matching the module ID. Existing world settings are retained.
 
 For a GitHub release, attach both this ZIP and the supplied `module.json` to
-tag `v1.6.0`. The manifest download URL targets that release and becomes usable
+tag `v1.7.0`. The manifest download URL targets that release and becomes usable
 after those assets are published.
 
 ## Validation for 1.6.0
@@ -104,3 +104,26 @@ render hook was simulated. The existing v13/v14 compatibility declaration is
 retained. Before using in a session, open a player-owned Hand containing a
 configured card as that player, click View Card, flip it, and confirm no new
 chat post appears. Then deal another card to check your automatic preferences.
+
+## Condition reference cards (1.7.0)
+
+As GM, open **Configure Settings → Quest Viewer → Choose Decks**, then click
+**Create / Open Conditions Deck**. This creates **Conditions — 2024** in the
+Cards sidebar with all 15 conditions. Default Observer permission lets players
+read it without granting editing access. Existing deck selections are unchanged.
+
+Players open **Cards → Conditions — 2024**, then click **View Card** beside a
+condition. No dealing is required. These reference cards explain the effects;
+they do not apply conditions to actors or tokens. They have no quest status or
+click-to-flip control, so the text and source links can be read normally.
+
+Clicking the setup button again opens the existing deck, preserving any GM edits
+and permission changes. To regenerate the original cards, delete that reference
+deck first and use the setup button again. Creating the deck posts no chat and
+does not select it for automatic dealing. If desired, select it like another deck
+for the existing deal behavior. Condition cards in owned Hands also have View Card.
+
+Rules are adapted from SRD 5.2.1 (2024 fifth-edition rules). Each card includes
+source and license details; see [RULES-LICENSE.md](RULES-LICENSE.md).
+
+Validation for 1.7.0: 77 browser checks passed using installed Foundry 14.365 Hand and Deck templates with simulated documents and hooks, including observer access, stale controls, repeated setup, card content, and existing quest behavior. Live multiplayer testing in a running world remains to be done.

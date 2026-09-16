@@ -96,6 +96,16 @@
 .qv-status-control select { width: 150px; }
 .qv-hand-status { flex: 0 0 auto; margin: 2px 4px; }
 
+.qv-card--condition { cursor: auto; min-height: 0; padding: 28px; }
+.qv-condition-edition { text-align: center; font: bold 11px/1.5 Georgia, serif; letter-spacing: 2px; margin-bottom: 12px; }
+.qv-condition-effects { padding-left: 20px; margin: 0; }
+.qv-condition-effects li { margin-bottom: 14px; }
+.qv-card .qv-condition-note { font-size: 13px; line-height: 1.5; border-top: 1px solid #725838; padding-top: 14px; margin-top: 20px; }
+.qv-rules-credit { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.qv-rules-credit summary { cursor: pointer; }
+.qv-card .qv-rules-credit a { color: #493713; text-decoration: underline; }
+.qv-condition-setup { margin-bottom: 18px; }
+
 /* Embossed leather and gilded compass, drawn entirely with CSS. */
 .qv-card--back {
   position: relative;
