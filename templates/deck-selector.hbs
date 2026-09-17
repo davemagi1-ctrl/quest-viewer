@@ -5,7 +5,7 @@
     <button type="button" data-action="createConditions"><i class="fa-solid fa-layer-group"></i> Create / Update Reference Deck</button>
   </fieldset>
   <p class="notes">
-    Select every Card Deck that should trigger Quest Viewer when one of its
+    Select every Card Deck that should trigger Adventurer’s Cards when one of its
     cards is dealt into a Hand.
   </p>
 
@@ -54,12 +54,18 @@
       <i class="fa-solid fa-triangle-exclamation"></i>
       <p><strong>No Card Decks were detected.</strong></p>
       <p class="notes">
-        Quest Viewer reads the world Cards collection and lists stacks whose
+        Adventurer’s Cards reads the world Cards collection and lists stacks whose
         type is <code>deck</code>.
       </p>
     </div>
   {{/if}}
 
+  <fieldset class="qv-quest-icon-setup">
+    <legend>Quest card emblem</legend>
+    <img src="modules/quest-viewer/assets/quest-emblem.svg" width="56" height="56" alt="Quest scroll and wax seal">
+    <p class="notes">Replace standard playing-card icons in the checked quest decks with this scroll emblem. Custom artwork and card text are kept. The conditions/reference deck is always excluded. Existing dealt copies keep their current images; future deals use the updated source cards.</p>
+    <button type="button" data-action="applyQuestIcon">Apply Quest Emblem to Checked Decks</button>
+  </fieldset>
   <footer class="qv-sheet-footer">
     <button type="submit">
       <i class="fa-solid fa-floppy-disk"></i>

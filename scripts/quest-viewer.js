@@ -1,6 +1,7 @@
 const MODULE_ID = "quest-viewer";
 const LEGACY_DECK_NAMES_KEY = "deckNames";
 const SELECTED_DECKS_KEY = "selectedDecks";
+const QUEST_ICON = "modules/quest-viewer/assets/quest-emblem.svg";
 
 /**
  * Deck selector settings submenu.
@@ -14,7 +15,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
     id: "quest-viewer-deck-selector",
     tag: "form",
     window: {
-      title: "Quest Viewer — Deck Selection",
+      title: "Adventurer’s Cards — Deck Selection",
       resizable: true
     },
     position: {
@@ -28,6 +29,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
     actions: {
       selectAll: QuestViewerDeckSelector.#onSelectAll,
       createConditions: QuestViewerDeckSelector.#onCreateConditions,
+      applyQuestIcon: QuestViewerDeckSelector.#onApplyQuestIcon,
       clearAll: QuestViewerDeckSelector.#onClearAll
     }
   };
@@ -128,6 +130,18 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
     } finally { target.disabled = false; }
   }
 
+  static async #onApplyQuestIcon(event, target) {
+    const ids = Array.from(this.element?.querySelectorAll(".qv-deck-checkbox:checked") ?? [], input => input.value);
+    target.disabled = true;
+    try {
+      const result = await applyQuestIcons(ids);
+      ui.notifications.info(`Quest emblem applied to ${result.cards} card(s) and ${result.decks} deck cover(s). Reference cards and custom artwork were preserved.`);
+    } catch (err) {
+      console.error(`${MODULE_ID} | Quest icon update failed`, err);
+      ui.notifications.error("Some quest icons could not be updated. You can safely retry; see the console for details.");
+    } finally { target.disabled = false; }
+  }
+
   static async #onSubmit(event, form, formData) {
     const checked = Array.from(
       this.element?.querySelectorAll(".qv-deck-checkbox:checked") ?? []
@@ -140,7 +154,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
     );
 
     ui.notifications.info(
-      `Quest Viewer: ${checked.length} deck${checked.length === 1 ? "" : "s"} selected.`
+      `Adventurer’s Cards: ${checked.length} deck${checked.length === 1 ? "" : "s"} selected.`
     );
   }
 }
@@ -167,7 +181,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu(MODULE_ID, "deckSelector", {
     name: "Quest Decks",
     label: "Choose Decks",
-    hint: "Choose which card decks should trigger Quest Viewer when their cards are dealt to a hand.",
+    hint: "Choose which card decks should trigger Adventurer’s Cards when their cards are dealt to a hand.",
     icon: "fa-solid fa-layer-group",
     type: QuestViewerDeckSelector,
     restricted: true
@@ -207,7 +221,7 @@ Hooks.once("init", () => {
 
   game.settings.register(MODULE_ID, "chatAlias", {
     name: "Chat Speaker Name",
-    hint: "The speaker name used when Quest Viewer posts a card to chat.",
+    hint: "The speaker name used when Adventurer’s Cards posts a card to chat.",
     scope: "world",
     config: true,
     type: String,
@@ -385,7 +399,7 @@ function statusBadgeHTML(card) {
 }
 
 async function setQuestStatus(card, status) {
-  if (!game.user.isGM) throw new Error("Only the GM can change quest status using Quest Viewer.");
+  if (!game.user.isGM) throw new Error("Only the GM can change quest status using Adventurer’s Cards.");
   if (!Object.hasOwn(QUEST_STATUSES, status)) throw new Error("Invalid quest status.");
   if (card.parent?.cards.get(card.id) !== card || !(await isConfiguredQuestCard(card))) {
     throw new Error("This quest card is no longer available.");
@@ -537,7 +551,7 @@ Hooks.on("createCard", async (card, options, userId) => {
 
     await showQuestCard(card);
   } catch (err) {
-    console.error(`${MODULE_ID} | Quest Viewer error`, err);
+    console.error(`${MODULE_ID} | Adventurer’s Cards error`, err);
   }
 });
 
@@ -596,7 +610,7 @@ async function addViewCardButtons(app, html) {
           await showQuestCard(current);
         } catch (err) {
           console.error(`${MODULE_ID} | Could not reopen quest card`, err);
-          ui.notifications.error("Quest Viewer could not open this card. See the console for details.");
+          ui.notifications.error("Adventurer’s Cards could not open this card. See the console for details.");
         } finally {
           button.disabled = false;
         }
@@ -721,6 +735,40 @@ const CONDITION_ICONS = {
 };
 function referenceIcon(rule) {
   return `icons/svg/${rule.icon || CONDITION_ICONS[rule.name] || "card-hand"}.svg`;
+}
+
+const DEFAULT_QUEST_IMAGES = new Set(["", "icons/svg/card-joker.svg", "icons/svg/card-hand.svg"]);
+let questIconUpdate;
+async function applyQuestIcons(deckIds) {
+  if (!game.user.isGM) throw new Error("Only a GM can update quest icons.");
+  if (questIconUpdate) return questIconUpdate;
+  questIconUpdate = (async () => {
+    const result = { cards: 0, decks: 0 };
+    for (const id of new Set(deckIds)) {
+      const deck = game.cards?.get(id);
+      // Explicitly exclude the reference deck, even if it was checked in settings.
+      if (!deck || deck.type !== "deck" || isConditionsDeck(deck)) continue;
+      const updates = [];
+      for (const card of deck.cards.values()) {
+        if (isConditionCard(card) || isConditionsDeck(card.source ?? card.origin)) continue;
+        const faces = card.toObject().faces;
+        if (!faces?.some(face => DEFAULT_QUEST_IMAGES.has(face.img ?? ""))) continue;
+        updates.push({ _id: card.id, faces: faces.map(face => ({ ...face,
+          img: DEFAULT_QUEST_IMAGES.has(face.img ?? "") ? QUEST_ICON : face.img })) });
+      }
+      if (updates.length) {
+        await deck.updateEmbeddedDocuments("Card", updates);
+        result.cards += updates.length;
+      }
+      if (DEFAULT_QUEST_IMAGES.has(deck.img ?? "")) {
+        await deck.update({ img: QUEST_ICON });
+        result.decks++;
+      }
+    }
+    return result;
+  })();
+  try { return await questIconUpdate; }
+  finally { questIconUpdate = null; }
 }
 
 // Additional references are labelled by their actual rule type, not as conditions.

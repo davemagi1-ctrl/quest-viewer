@@ -1,6 +1,6 @@
-# Quest Viewer
+# Adventurer’s Cards
 
-Quest Viewer is a lightweight Foundry VTT module for displaying text-based
+Adventurer’s Cards is a lightweight Foundry VTT module for displaying text-based
 Cards as readable quest cards.
 
 ## Features
@@ -22,7 +22,7 @@ Cards as readable quest cards.
 
 Open:
 
-**Game Settings → Configure Settings → Module Settings → Quest Viewer**
+**Game Settings → Configure Settings → Module Settings → Adventurer’s Cards**
 
 Use **Quest Decks → Choose Decks** to select any number of Cards decks.
 
@@ -37,7 +37,7 @@ Other settings control:
 
 Open a quest card using View Card. As GM, use the **Quest status** dropdown
 below it to choose **Active**, **Completed**, or **Failed**. Players see the
-badge in the viewer and in their owned Hand; Quest Viewer only provides the
+badge in the viewer and in their owned Hand; Adventurer’s Cards only provides the
 editing control to GMs. Existing cards start as Active without a migration.
 
 Status is stored in `flags.quest-viewer.status` on that specific card.
@@ -73,7 +73,7 @@ The reverse uses dark green leather styling and gold ornamentation. Cards withou
 
 ## Card content
 
-Quest Viewer reads:
+Adventurer’s Cards reads:
 
 - Front: the active Card Face's `text`
 - Fallback front: the Card's description
@@ -82,13 +82,13 @@ Quest Viewer reads:
 ## Installation
 
 Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
-**Quest Viewer** in Manage Modules, then reload the world.
+**Adventurer’s Cards** in Manage Modules, then reload the world.
 
-The ZIP filename is `quest-viewer-v1.8.0.zip`; its inner directory remains
+The ZIP filename is `quest-viewer-v1.9.0.zip`; its inner directory remains
 `quest-viewer`, matching the module ID. Existing world settings are retained.
 
 For a GitHub release, attach both this ZIP and the supplied `module.json` to
-tag `v1.8.0`. The manifest download URL targets that release and becomes usable
+tag `v1.9.0`. The manifest download URL targets that release and becomes usable
 after those assets are published.
 
 ## Validation for 1.6.0
@@ -107,7 +107,7 @@ chat post appears. Then deal another card to check your automatic preferences.
 
 ## Rules reference cards (1.8.0)
 
-As GM, open **Configure Settings → Quest Viewer → Choose Decks → Create / Update Reference Deck**.
+As GM, open **Configure Settings → Adventurer’s Cards → Choose Decks → Create / Update Reference Deck**.
 The shared **Rules Reference — 2024** deck contains 40 cards with matching Foundry symbols:
 
 - All 15 conditions.
@@ -141,3 +141,22 @@ Validation: 86 browser checks passed using Foundry 14.365 Hand and Deck template
 documents and hooks. Tests include legacy deck upgrades, custom-art preservation, no duplicate
 updates, Observer access, and existing quest behavior. Icon paths, previews, syntax, and ZIP
 structure were checked. Live multiplayer testing remains.
+
+## Quest emblem and new name (1.9.0)
+
+Quest Viewer is now **Adventurer’s Cards**. The internal module ID, URLs, flags, and settings keys remain `quest-viewer` for compatibility.
+
+As GM, open **Configure Settings → Adventurer’s Cards → Choose Decks**. Check your quest decks,
+then click **Apply Quest Emblem to Checked Decks**. This applies a parchment-scroll and wax-seal
+image to standard playing-card icons on source-card faces and deck covers. Text, card backs,
+extra faces, and custom artwork are preserved. The conditions/reference deck is always excluded,
+even when checked; flagged reference cards within another deck are also excluded.
+
+The button uses the currently checked decks; it does not change saved deck-selection settings.
+Use **Save Deck Selection** separately if you also want to change automatic popup sources.
+Existing dealt copies retain their current images. Future deals use the updated source faces.
+Run the button again after adding new quest cards. The emblem is bundled as an SVG with the
+module; no external artwork service is required.
+
+Validation for 1.9.0: 94 browser checks, including strict reference-deck exclusion and preserving
+custom artwork. Live-world multiplayer testing remains.

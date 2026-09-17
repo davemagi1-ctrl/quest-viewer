@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0
+- Renamed the displayed module to Adventurer’s Cards; internal quest-viewer ID and saved settings remain compatible.
+- Added a bundled scroll-and-wax-seal quest emblem and a GM button to apply it to checked quest decks.
+- Changes only standard playing-card icons on source faces and deck covers, preserving custom artwork, text, and backs.
+- Explicitly excludes the conditions/reference deck and reference cards; previously dealt copies are unchanged.
+
 ## 1.8.0
 - Replaced placeholder books with matching Foundry symbols on new reference cards.
 - Expanded to 40 cards with actions, movement, combat states, hazards, and visibility rules, including Hide, Dodge, Flying, and Hovering.

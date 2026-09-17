@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Quest scroll and wax seal</title>
+  <defs>
+    <linearGradient id="paper" x2="0.7" y2="1"><stop stop-color="#fff0c3"/><stop offset="1" stop-color="#c79a4e"/></linearGradient>
+    <linearGradient id="wax" x2="0.8" y2="1"><stop stop-color="#d55742"/><stop offset="1" stop-color="#7c1c24"/></linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="#202b27" stroke="#bc9553" stroke-width="3"/>
+  <path d="M35 22h65c-9 0-12 8-12 16v54c0 10-8 16-18 16H24c9-3 13-9 13-18V34c0-7-4-12-10-12Z" fill="url(#paper)" stroke="#493523" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M27 22c-7 0-12 6-12 13v7h22v-8c0-7-4-12-10-12ZM88 38h23v-5c0-6-5-11-11-11-8 0-12 7-12 16Z" fill="#edcf87" stroke="#493523" stroke-width="3"/>
+  <path d="M50 46h23M50 57h25M50 68h15" stroke="#856239" stroke-width="4" stroke-linecap="round"/>
+  <path d="m78 91-3 26 12-7 11 5-6-26" fill="#922c2c" stroke="#571f24" stroke-width="2"/>
+  <circle cx="84" cy="86" r="18" fill="url(#wax)" stroke="#631d23" stroke-width="3"/>
+  <path d="m84 74 3 8 8 4-8 3-3 9-3-9-8-3 8-4Z" fill="#f5d889"/>
+</svg>
