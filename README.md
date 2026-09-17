@@ -84,11 +84,11 @@ Quest Viewer reads:
 Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
 **Quest Viewer** in Manage Modules, then reload the world.
 
-The ZIP filename is `quest-viewer-v1.7.0.zip`; its inner directory remains
+The ZIP filename is `quest-viewer-v1.8.0.zip`; its inner directory remains
 `quest-viewer`, matching the module ID. Existing world settings are retained.
 
 For a GitHub release, attach both this ZIP and the supplied `module.json` to
-tag `v1.7.0`. The manifest download URL targets that release and becomes usable
+tag `v1.8.0`. The manifest download URL targets that release and becomes usable
 after those assets are published.
 
 ## Validation for 1.6.0
@@ -105,25 +105,39 @@ retained. Before using in a session, open a player-owned Hand containing a
 configured card as that player, click View Card, flip it, and confirm no new
 chat post appears. Then deal another card to check your automatic preferences.
 
-## Condition reference cards (1.7.0)
+## Rules reference cards (1.8.0)
 
-As GM, open **Configure Settings → Quest Viewer → Choose Decks**, then click
-**Create / Open Conditions Deck**. This creates **Conditions — 2024** in the
-Cards sidebar with all 15 conditions. Default Observer permission lets players
-read it without granting editing access. Existing deck selections are unchanged.
+As GM, open **Configure Settings → Quest Viewer → Choose Decks → Create / Update Reference Deck**.
+The shared **Rules Reference — 2024** deck contains 40 cards with matching Foundry symbols:
 
-Players open **Cards → Conditions — 2024**, then click **View Card** beside a
-condition. No dealing is required. These reference cards explain the effects;
-they do not apply conditions to actors or tokens. They have no quest status or
-click-to-flip control, so the text and source links can be read normally.
+- All 15 conditions.
+- Dodge, Hide, Dash, Disengage, Help, Ready.
+- Flying, Hovering, Climbing, Swimming, Burrowing, Crawling.
+- Concentration, Surprised, Sleeping, Bloodied, Stable, Dying, Dead.
+- Burning, Falling, Cover, Lightly Obscured, Heavily Obscured, Heroic Inspiration.
 
-Clicking the setup button again opens the existing deck, preserving any GM edits
-and permission changes. To regenerate the original cards, delete that reference
-deck first and use the setup button again. Creating the deck posts no chat and
-does not select it for automatic dealing. If desired, select it like another deck
-for the existing deal behavior. Condition cards in owned Hands also have View Card.
+Players open the deck in **Cards** and click **View Card**. New decks grant default Observer
+permission. Reference cards explain rules; they do not apply effects to actors or tokens.
+Actions, movement, and other rules are labelled separately from conditions. Generic Foundry
+markers without a universal 2024 rule, such as Shocked or Frozen, are not presented as official conditions.
 
-Rules are adapted from SRD 5.2.1 (2024 fifth-edition rules). Each card includes
-source and license details; see [RULES-LICENSE.md](RULES-LICENSE.md).
+For an existing 1.7.0 deck, click the same setup button after updating the module and reloading:
+missing references are added, and original book icons are replaced. Existing text, extra faces,
+custom artwork, and ownership remain. The original default deck name becomes **Rules Reference — 2024**;
+a custom deck name is preserved. Running setup again does not duplicate identified cards.
+Cards gain stable reference identifiers, so subsequent renaming is safe. Legacy cards are
+recognized by their name or first face name; if both were renamed before upgrading, they cannot
+be identified automatically. Deleted references are restored when setup is run again.
 
-Validation for 1.7.0: 77 browser checks passed using installed Foundry 14.365 Hand and Deck templates with simulated documents and hooks, including observer access, stale controls, repeated setup, card content, and existing quest behavior. Live multiplayer testing in a running world remains to be done.
+The deck is not automatically selected for dealing. Existing quest deck selections and automatic
+popup/chat behavior are unchanged. Reference cards in owned Hands can also be viewed.
+The icon update affects the shared deck; previously dealt copies retain their own artwork.
+
+Rules are adapted from SRD 5.2.1 under CC BY 4.0. Source details are in each card and
+[RULES-LICENSE.md](RULES-LICENSE.md). This is a reference selection, not every action, spell,
+class feature, or possible effect in the game.
+
+Validation: 86 browser checks passed using Foundry 14.365 Hand and Deck templates with simulated
+documents and hooks. Tests include legacy deck upgrades, custom-art preservation, no duplicate
+updates, Observer access, and existing quest behavior. Icon paths, previews, syntax, and ZIP
+structure were checked. Live multiplayer testing remains.

@@ -1,8 +1,8 @@
 {
   "id": "quest-viewer",
   "title": "Quest Viewer",
-  "description": "Readable quest cards with multi-deck selection, automatic popups, chat posts, and quest status badges. Includes a shared deck of all 15 conditions from the 2024 fifth-edition rules.",
-  "version": "1.7.0",
+  "description": "Readable quest cards with multi-deck selection, automatic popups, chat posts, and quest status badges. Includes 40 illustrated references for 2024 conditions, actions, movement, and combat rules.",
+  "version": "1.8.0",
   "authors": [
     {
       "name": "Dave Talimaa"
@@ -20,5 +20,5 @@
   ],
   "url": "https://github.com/davemagi1-ctrl/quest-viewer",
   "manifest": "https://github.com/davemagi1-ctrl/quest-viewer/releases/latest/download/module.json",
-  "download": "https://github.com/davemagi1-ctrl/quest-viewer/releases/download/v1.7.0/quest-viewer-v1.7.0.zip"
+  "download": "https://github.com/davemagi1-ctrl/quest-viewer/releases/download/v1.8.0/quest-viewer-v1.8.0.zip"
 }

@@ -121,7 +121,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
     try {
       const deck = await createConditionsDeck();
       deck.sheet.render({ force: true });
-      ui.notifications.info("Conditions deck ready. Players can open it in Cards and choose View Card.");
+      ui.notifications.info("Reference deck updated. Players can open it in Cards and choose View Card.");
     } catch (err) {
       console.error(`${MODULE_ID} | Conditions deck setup failed`, err);
       ui.notifications.error("Could not create the Conditions deck. See the console for details.");
@@ -415,8 +415,9 @@ Hooks.on("deleteCard", card => {
 function buildCardHTML(card, showingFront) {
   if (isConditionCard(card)) return `
     <div class="qv-viewer-wrapper">
-      <article class="qv-card qv-card--condition" aria-label="${escapeHTML(card.name)} condition">
-        <div class="qv-condition-edition">CONDITION • 2024 RULES</div>
+      <article class="qv-card qv-card--condition" aria-label="${escapeHTML(card.name)} reference">
+        <img class="qv-reference-icon" src="${escapeHTML(getFace(card)?.img || "icons/svg/card-hand.svg")}" alt="">
+        <div class="qv-condition-edition">${escapeHTML(card.getFlag?.(MODULE_ID, "referenceKind") || "Condition")} • 2024 RULES</div>
         <header class="qv-card-title">${escapeHTML(card.name)}</header>
         <section class="qv-card-body">${getFaceText(card)}</section>
       </article>
@@ -703,14 +704,131 @@ function isConditionCard(card) {
 
 function conditionCardData(condition, index) {
   const text = `<ul class="qv-condition-effects">${condition.effects.map(effect => `<li>${effect}</li>`).join("")}</ul>
-    <p class="qv-condition-note">The effect causing a condition determines its duration and how it ends. Specific rules can override these general effects.</p>
+    <p class="qv-condition-note">${condition.kind ? "This is a rules reference, not an additional condition. Specific effects can change these rules." : "The effect causing a condition determines its duration and how it ends. Specific rules can override these general effects."}</p>
     <details class="qv-rules-credit"><summary>Rules source &amp; license</summary><p>Adapted and summarized for these cards; related Incapacitated effects are expanded for convenience.</p><p>${CONDITION_ATTRIBUTION}</p></details>`;
   return {
     name: condition.name, description: text, face: 0, sort: (index + 1) * 100000,
-    faces: [{ name: condition.name, text, img: "icons/svg/book.svg" }],
-    flags: { [MODULE_ID]: { conditionRules: "2024" } }
+    faces: [{ name: condition.name, text, img: referenceIcon(condition) }],
+    flags: { [MODULE_ID]: { conditionRules: "2024", referenceKey: condition.name, referenceKind: condition.kind || "Condition" } }
   };
 }
+
+const CONDITION_ICONS = {
+  Blinded: "blind", Charmed: "aura", Deafened: "deaf", Exhaustion: "downgrade",
+  Frightened: "terror", Grappled: "anchor", Incapacitated: "cancel", Invisible: "invisible",
+  Paralyzed: "paralysis", Petrified: "statue", Poisoned: "poison", Prone: "falling",
+  Restrained: "net", Stunned: "daze", Unconscious: "unconscious"
+};
+function referenceIcon(rule) {
+  return `icons/svg/${rule.icon || CONDITION_ICONS[rule.name] || "card-hand"}.svg`;
+}
+
+// Additional references are labelled by their actual rule type, not as conditions.
+const EXTRA_RULES_2024 = [
+  { name: "Dodge", kind: "Action", icon: "shield", effects: [
+    "<strong>Until your next turn.</strong> Until the start of your next turn, attack rolls against you have Disadvantage if you can see the attacker. Your Dexterity saving throws have Advantage.",
+    "<strong>Losing the benefit.</strong> These benefits end if you become Incapacitated or your Speed becomes 0."
+  ] },
+  { name: "Hide", kind: "Action", icon: "cowled", effects: [
+    "<strong>Requirements.</strong> Be out of every enemy's line of sight and either Heavily Obscured or behind Three-Quarters or Total Cover. If you can see a creature, you can tell whether it can see you.",
+    "<strong>Check.</strong> Succeed on a DC 15 Dexterity (Stealth) check. You gain the Invisible condition while hidden. Record your total: it becomes the DC to find you with Wisdom (Perception).",
+    "<strong>While hidden.</strong> Invisible gives Advantage on Initiative and on your attacks, and Disadvantage on attacks against you. The attack benefits do not apply against a creature that can see you. Effects requiring a visible target cannot affect you unless their creator can see you.",
+    "<strong>Hiding ends.</strong> You stop being hidden immediately after making a sound louder than a whisper, being found by an enemy, making an attack roll, or casting a spell with a Verbal component."
+  ] },
+  { name: "Dash", kind: "Action", icon: "wingfoot", effects: [
+    "<strong>Extra movement.</strong> Gain movement equal to your Speed, after modifiers, for this turn. With Speed 30 feet, one Dash lets you move up to 60 feet in total.",
+    "<strong>Special speeds.</strong> You can choose a special speed, such as Fly or Swim Speed, instead. Choose the speed each time you Dash."
+  ] },
+  { name: "Disengage", kind: "Action", icon: "direction", effects: [
+    "<strong>Safe movement.</strong> Your movement does not provoke Opportunity Attacks for the rest of the current turn."
+  ] },
+  { name: "Help", kind: "Action", icon: "heal", effects: [
+    "<strong>Help a check.</strong> Choose a skill or tool you are proficient with and an ally close enough to assist. They have Advantage on their next ability check with it before the start of your next turn. The GM decides whether your assistance is possible.",
+    "<strong>Help an attack.</strong> Alternatively, distract an enemy within 5 feet of you. The next attack roll by an ally against that enemy has Advantage. This benefit expires at the start of your next turn.",
+    "<strong>Stabilize.</strong> You can also use Help to try to stabilize a creature at 0 Hit Points with a DC 10 Wisdom (Medicine) check."
+  ] },
+  { name: "Ready", kind: "Action", icon: "clockwork", effects: [
+    "<strong>Choose a trigger.</strong> Name a perceivable circumstance and the action you will take, or choose to move up to your Speed. You can respond before the start of your next turn.",
+    "<strong>Respond.</strong> Use your Reaction immediately after the trigger finishes, or ignore it.",
+    "<strong>Readying a spell.</strong> It must have a casting time of an action. Cast it now, spending its resources, and hold it with Concentration until you release it. If Concentration breaks, the spell has no effect. You can hold it only until the start of your next turn."
+  ] },
+  { name: "Flying", kind: "Movement", icon: "wing", effects: [
+    "<strong>Fly Speed.</strong> A Fly Speed allows movement through the air. You can stay aloft until you land, fall, or die. This reference does not grant flight or a Fly Speed.",
+    "<strong>Falling.</strong> While flying, you fall if you become Incapacitated or Prone, or your Fly Speed becomes 0. The ability to hover lets you remain aloft in those circumstances."
+  ] },
+  { name: "Hovering", kind: "Movement", icon: "wingfoot", effects: [
+    "<strong>Special ability.</strong> Hovering must be granted by your stat block, a spell, or another effect. Having a Fly Speed alone does not grant it.",
+    "<strong>Remain aloft.</strong> While flying, hovering prevents falling because you become Incapacitated or Prone, or your Fly Speed is reduced to 0."
+  ] },
+  { name: "Climbing", kind: "Movement", icon: "ladder", effects: [
+    "<strong>Movement cost.</strong> Each foot climbed costs 1 extra foot, or 2 extra feet in Difficult Terrain. Using a Climb Speed removes the extra cost for climbing.",
+    "<strong>Difficult climb.</strong> The GM can require a DC 15 Strength (Athletics) check for a slippery surface or one with few handholds."
+  ] },
+  { name: "Swimming", kind: "Movement", icon: "waterfall", effects: [
+    "<strong>Movement cost.</strong> Each foot swum costs 1 extra foot, or 2 extra feet in Difficult Terrain. Using a Swim Speed removes the extra cost for swimming.",
+    "<strong>Rough water.</strong> The GM can require a DC 15 Strength (Athletics) check to move through rough water."
+  ] },
+  { name: "Burrowing", kind: "Movement", icon: "mole", effects: [
+    "<strong>Burrow Speed.</strong> Use this speed to move through sand, earth, mud, or ice. You cannot burrow through solid rock unless a trait allows it. This reference does not grant a Burrow Speed."
+  ] },
+  { name: "Crawling", kind: "Movement", icon: "down", effects: [
+    "<strong>Movement cost.</strong> Each foot crawled costs 1 extra foot, or 2 extra feet in Difficult Terrain.",
+    "<strong>While Prone.</strong> You can crawl or spend movement equal to half your Speed, rounded down, to stand. You cannot stand this way with Speed 0."
+  ] },
+  { name: "Concentration", kind: "Spellcasting", icon: "eye", effects: [
+    "<strong>Maintaining an effect.</strong> Keep Concentration for up to the duration stated by the effect. You may end it at any time without an action.",
+    "<strong>Taking damage.</strong> Make a Constitution saving throw. The DC is 10 or half the damage, rounded down, whichever is higher, to a maximum DC of 30. Failure breaks Concentration.",
+    "<strong>Other endings.</strong> Concentration ends if you become Incapacitated or die. It also ends when you start casting another spell requiring Concentration or activate another effect requiring it."
+  ] },
+  { name: "Surprised", kind: "Combat state", icon: "hazard", effects: [
+    "<strong>Initiative.</strong> If combat starts while you are caught unawares, you have Disadvantage on your Initiative roll. Surprise in the 2024 rules does not make you skip your first turn."
+  ] },
+  { name: "Sleeping", kind: "Combat state", icon: "sleep", effects: [
+    "<strong>Unconscious.</strong> While sleeping, you have the Unconscious condition. You cannot take actions, Bonus Actions, or Reactions; cannot speak; lose Concentration; and are unaware of your surroundings.",
+    "<strong>Other effects.</strong> You are Prone, drop held items, have Speed 0, and automatically fail Strength and Dexterity saves. Attacks against you have Advantage; a hit is a Critical Hit if the attacker is within 5 feet. Apply Prone and other sources of Advantage or Disadvantage as usual.",
+    "<strong>Waking.</strong> Check the rule that caused sleep, especially magical sleep, for how it ends. When Unconscious ends, you remain Prone."
+  ] },
+  { name: "Bloodied", kind: "Combat state", icon: "blood", effects: [
+    "<strong>Half health.</strong> You are Bloodied while you have half your maximum Hit Points or fewer remaining. Specific features may use this threshold; it imposes no general penalty by itself."
+  ] },
+  { name: "Stable", kind: "Combat state", icon: "regen", effects: [
+    "<strong>At 0 Hit Points.</strong> You remain Unconscious but do not make Death Saving Throws. Becoming Stable resets your death-save successes and failures.",
+    "<strong>Recovery and damage.</strong> If not healed, you regain 1 Hit Point after 1d4 hours. Taking damage ends stability and resumes Death Saving Throws; the damage-at-0 rules still apply."
+  ] },
+  { name: "Dying", kind: "Combat state", icon: "degen", effects: [
+    "<strong>At 0 Hit Points.</strong> If you do not die instantly, you become Unconscious until you regain Hit Points. Unless Stable, make a Death Saving Throw at the start of each turn: 10 or higher succeeds.",
+    "<strong>Track results.</strong> Three successes make you Stable; three failures kill you. A natural 1 counts as two failures; a natural 20 restores 1 Hit Point. Healing or becoming Stable clears both counts.",
+    "<strong>Damage.</strong> Damage at 0 Hit Points causes one failed death save, or two from a Critical Hit. Damage equal to or greater than your Hit Point maximum kills you."
+  ] },
+  { name: "Dead", kind: "Combat state", icon: "skull", effects: [
+    "<strong>Revival required.</strong> A dead creature has no Hit Points and cannot regain them until revived by magic such as Revivify or Raise Dead. Its spirit may refuse to return.",
+    "<strong>Returning.</strong> The revival effect determines restored Hit Points. Unless it says otherwise, ongoing conditions, curses, and magical contagions return if their durations have not ended. Exhaustion is reduced by 1 level, and previous magic-item Attunement is lost."
+  ] },
+  { name: "Burning", kind: "Hazard", icon: "fire", effects: [
+    "<strong>Damage.</strong> A burning creature or object takes 1d4 Fire damage at the start of each of its turns.",
+    "<strong>Extinguish.</strong> As an action, make yourself Prone and roll on the ground to extinguish fire on yourself. Dousing, submerging, or suffocating the fire also extinguishes it. Specific effects may use different rules."
+  ] },
+  { name: "Falling", kind: "Hazard", icon: "falling", effects: [
+    "<strong>Impact.</strong> At the end of a fall, take 1d6 Bludgeoning damage per 10 feet fallen, up to 20d6. You land Prone unless you avoid all damage from the fall.",
+    "<strong>Into liquid.</strong> Use your Reaction to make a DC 15 Strength (Athletics) or Dexterity (Acrobatics) check to hit head or feet first. Success halves the fall damage."
+  ] },
+  { name: "Cover", kind: "Combat rule", icon: "shield", effects: [
+    "<strong>Half Cover.</strong> Gain +2 to AC and Dexterity saving throws.",
+    "<strong>Three-Quarters Cover.</strong> Gain +5 to AC and Dexterity saving throws.",
+    "<strong>Total Cover.</strong> You cannot be targeted directly. Cover is relative to the attack or effect; use only the most protective degree, not their sum."
+  ] },
+  { name: "Lightly Obscured", kind: "Visibility", icon: "light-off", effects: [
+    "<strong>Seeing.</strong> Wisdom (Perception) checks to see something in a Lightly Obscured space have Disadvantage. Dim Light is Lightly Obscured."
+  ] },
+  { name: "Heavily Obscured", kind: "Visibility", icon: "blind", effects: [
+    "<strong>Seeing.</strong> You have the Blinded condition when trying to see something in a Heavily Obscured space. Darkness is Heavily Obscured. Relevant special senses can change what you can see."
+  ] },
+  { name: "Heroic Inspiration", kind: "Benefit", icon: "angel", effects: [
+    "<strong>Reroll.</strong> Spend Heroic Inspiration to reroll any die immediately after rolling it. You must use the new roll.",
+    "<strong>Already inspired.</strong> If you gain it while you already have it, it is lost unless you give it to another player character who lacks it."
+  ] }
+];
+const REFERENCE_RULES_2024 = [...CONDITIONS_2024, ...EXTRA_RULES_2024];
 
 let conditionsDeckCreation;
 async function createConditionsDeck() {
@@ -719,15 +837,43 @@ async function createConditionsDeck() {
   conditionsDeckCreation = (async () => {
     const decks = Array.from(game.cards?.contents ?? game.cards?.values() ?? []);
     const existing = decks.find(deck => deck.type === "deck" && isConditionsDeck(deck));
-    // Never overwrite a GM's card edits or permission changes when reopening.
-    if (existing) return existing;
+    if (existing) {
+      const cards = Array.from(existing.cards.values());
+      const updates = [];
+      const additions = [];
+      for (const [index, rule] of REFERENCE_RULES_2024.entries()) {
+        const card = cards.find(card => {
+          const key = card.getFlag(MODULE_ID, "referenceKey");
+          return key ? key === rule.name : card.name === rule.name || card.faces?.[0]?.name === rule.name;
+        });
+        if (!card) { additions.push(conditionCardData(rule, index)); continue; }
+        const update = { _id: card.id };
+        if (!card.getFlag(MODULE_ID, "referenceKey")) {
+          update[`flags.${MODULE_ID}.referenceKey`] = rule.name;
+          update[`flags.${MODULE_ID}.referenceKind`] = rule.kind || "Condition";
+        }
+        // Replace only the placeholder; retain edited text, extra faces and custom art.
+        if (card.faces?.some(face => face.img === "icons/svg/book.svg")) {
+          update.faces = card.toObject().faces.map(face => ({ ...face,
+            img: face.img === "icons/svg/book.svg" ? referenceIcon(rule) : face.img }));
+        }
+        if (Object.keys(update).length > 1) updates.push(update);
+      }
+      if (updates.length) await existing.updateEmbeddedDocuments("Card", updates);
+      if (additions.length) await existing.createEmbeddedDocuments("Card", additions);
+      const deckUpdate = {};
+      if (existing.img === "icons/svg/book.svg") deckUpdate.img = "icons/svg/card-hand.svg";
+      if (existing.name === "Conditions — 2024") deckUpdate.name = "Rules Reference — 2024";
+      if (Object.keys(deckUpdate).length) await existing.update(deckUpdate);
+      return existing;
+    }
     const CardsClass = getDocumentClass("Cards");
     return CardsClass.create({
-      name: "Conditions — 2024", type: "deck", img: "icons/svg/book.svg",
-      description: `<p>Open this deck in Cards and choose View Card to read a condition. Compatible with fifth edition (2024 rules).</p><p>${CONDITION_ATTRIBUTION}</p>`,
+      name: "Rules Reference — 2024", type: "deck", img: "icons/svg/card-hand.svg",
+      description: `<p>Open this deck in Cards and choose View Card to read conditions, actions, movement, and combat rules. Compatible with fifth edition (2024 rules).</p><p>${CONDITION_ATTRIBUTION}</p>`,
       ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
       flags: { [MODULE_ID]: { conditionsReference: "2024" } },
-      cards: CONDITIONS_2024.map(conditionCardData)
+      cards: REFERENCE_RULES_2024.map(conditionCardData)
     });
   })();
   try { return await conditionsDeckCreation; }

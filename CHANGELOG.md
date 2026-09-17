@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0
+- Replaced placeholder books with matching Foundry symbols on new reference cards.
+- Expanded to 40 cards with actions, movement, combat states, hazards, and visibility rules, including Hide, Dodge, Flying, and Hovering.
+- Labelled each reference by rule type; added the card icon to the viewer.
+- Added an update workflow that fills missing references and replaces legacy book icons while preserving edited text, extra faces, custom artwork, and permissions.
+- Existing default deck name becomes Rules Reference — 2024; custom names remain.
+- Preserved all existing quest behavior.
+
 ## 1.7.0
 - Added a GM setup button for a shared Conditions — 2024 reference deck containing all 15 conditions.
 - Players with Observer access can open condition cards directly from the deck without dealing.
