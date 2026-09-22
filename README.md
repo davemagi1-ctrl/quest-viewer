@@ -1,162 +1,108 @@
 # Adventurer’s Cards
 
-Adventurer’s Cards is a lightweight Foundry VTT module for displaying text-based
-Cards as readable quest cards.
+<img src="assets/quest-emblem.svg" width="96" height="96" alt="Quest scroll and wax seal">
+
+Readable quest cards and 2024 rules references for Foundry VTT. Formerly **Quest Viewer**.
+
+[Latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest) · [Changelog](CHANGELOG.md) · [Report a problem](https://github.com/davemagi1-ctrl/quest-viewer/issues)
 
 ## Features
 
-- Reopen configured quest cards already in your Hand using **View Card**.
-- Choose multiple quest decks using a checkbox-based deck selector.
-- Automatically opens a readable parchment-style card when a configured card
-  is dealt to a player-owned Hand.
-- Posts the card's front text to chat, if enabled.
-- Click the displayed card to flip between Face Text and Back Text.
-- No card artwork is required.
-- Configurable popup delay.
-- Optional GM popup.
-- Configurable chat speaker name.
-- Keyboard-accessible card flipping with Enter or Space.
-- Includes migration support for the older comma-separated deck-name setting.
+- Parchment quest cards with front/back text, mouse and keyboard flipping, and no artwork required.
+- Multiple source decks, automatic popups when dealt to player-owned Hands, and optional chat posts.
+- **View Card** to reopen quests from a player's Hand without repeating chat messages.
+- GM-controlled **Active**, **Completed**, and **Failed** status badges.
+- A shared scroll-and-wax-seal quest emblem that preserves custom artwork and excludes reference cards.
+- An optional shared deck of **40 rules reference cards** covering 2024 conditions, actions, movement, and combat.
 
-## Configuration
+## Install or update
 
-Open:
+In Foundry's **Add-on Modules → Install Module**, paste this manifest URL:
 
-**Game Settings → Configure Settings → Module Settings → Adventurer’s Cards**
+```text
+https://github.com/davemagi1-ctrl/quest-viewer/releases/latest/download/module.json
+```
 
-Use **Quest Decks → Choose Decks** to select any number of Cards decks.
+Enable **Adventurer’s Cards** in your world's **Manage Modules**, then reload the world.
+Existing installations can use Foundry's module updater.
 
-Other settings control:
+For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-- Chat posting
-- GM popups
-- Popup delay
-- Chat speaker name
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.9.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
 
-## Quest status (1.6.0)
+## Set up quest cards
 
-Open a quest card using View Card. As GM, use the **Quest status** dropdown
-below it to choose **Active**, **Completed**, or **Failed**. Players see the
-badge in the viewer and in their owned Hand; Adventurer’s Cards only provides the
-editing control to GMs. Existing cards start as Active without a migration.
+1. Open **Game Settings → Configure Settings → Module Settings → Adventurer’s Cards**.
+2. Under **Quest Decks**, click **Choose Decks**, check your source decks, and choose **Save Deck Selection**.
+3. Give each receiving player **Owner** permission on their Hand.
+4. Deal a card from a selected deck to that Hand.
 
-Status is stored in `flags.quest-viewer.status` on that specific card.
-Separate dealt copies have independent progress. Moving a card carries its
-flags according to Foundry's normal card transfer behavior; returning a card
-does not synchronize its status to the original source-deck card. Re-dealing
-uses the original card's data. This is per-card tracking, not a shared quest log.
+Settings control chat posting, automatic GM popups, popup delay, and the chat speaker name.
+Older deck-name settings are migrated automatically.
 
-Open viewers update when Foundry sends a card update. Status changes do not
-post to chat or change automatic popup settings. Chat history remains unchanged.
+The viewer reads the active face's text, falling back to the card description, and uses the card back's text for the reverse. The reverse has dark green and gold styling; empty back text displays the default compass seal.
 
-## Player permissions
+### Reopen and flip
 
-A player must have **Owner** permission on the Hand receiving the card in order
-to receive the automatic popup.
+Players open their Hand in **Cards** and click **View Card** beside a configured quest.
+Click the displayed card, or focus it and press **Enter** or **Space**, to flip it.
 
-## Reopening cards (1.4.0)
+Reopening is local: it does not deal a card, repeat chat posts, or open another player's viewer.
+GMs can reopen cards even when automatic GM popups are disabled. Ordinary source decks and piles do not receive the quest button; the shared reference deck has its own direct viewing support.
+After changing deck selection, close and reopen an existing Hand window to refresh its buttons.
 
-Open your Hand from the Cards sidebar and click **View Card** beside a quest
-card from a selected deck. The same parchment viewer opens, with front/back
-flipping. Reopening does not post another chat message, deal or modify the
-card, or open a popup for other users.
+### Quest status
 
-Players need Owner permission on the Hand. GMs can reopen cards manually even
-when **Show Automatic Popup to GM** is disabled. Cards from unselected decks,
-ordinary source decks, and piles do not receive this button. The shared Conditions deck is an exception (see below). Existing deck selections
-and automatic popup/chat settings are preserved. After changing deck selection,
-close and reopen an already-open Hand to refresh its buttons.
+As GM, open a quest and use **Quest status** to choose **Active**, **Completed**, or **Failed**.
+Players see the badge in the viewer and their owned Hand. Existing cards default to Active.
 
-## Card back design (1.6.0)
+Status belongs to each individual card. Separate dealt copies track progress independently; returning a card does not copy its status back to the source deck. Open viewers refresh on card updates. Status changes do not post to chat.
 
-The reverse uses dark green leather styling and gold ornamentation. Cards without back text show a compass seal and QUEST title. Custom back text is preserved in cream on the dark background. All ornamentation uses CSS; no external assets are needed.
+### Apply the quest emblem
 
-## Card content
+In **Choose Decks**, check your quest decks and click **Apply Quest Emblem to Checked Decks**.
 
-Adventurer’s Cards reads:
+The emblem replaces default playing-card images on source-card faces and deck covers. Custom artwork, text, and backs are preserved. **The conditions/rules reference deck is always excluded, even when checked**, and flagged reference cards in other decks are skipped.
 
-- Front: the active Card Face's `text`
-- Fallback front: the Card's description
-- Back: the Card Back's `text`
+This button uses the current checkboxes without saving deck-selection settings. Use **Save Deck Selection** separately to change automatic popup sources.
+Already-dealt copies keep their images; future deals inherit the source images. Run the button again for newly added quest cards.
 
-## Installation
+## Rules Reference — 2024
 
-Place the `quest-viewer` folder in Foundry's `Data/modules/` directory, enable
-**Adventurer’s Cards** in Manage Modules, then reload the world.
+As GM, open **Choose Decks → Create / Update Reference Deck**.
+Players can open the shared deck in **Cards** and click **View Card**, without needing cards dealt to them.
+New reference decks grant default **Observer** access.
 
-The ZIP filename is `quest-viewer-v1.9.0.zip`; its inner directory remains
-`quest-viewer`, matching the module ID. Existing world settings are retained.
+| Category | Included references |
+| --- | --- |
+| Conditions | All 15 conditions |
+| Actions | Dodge, Hide, Dash, Disengage, Help, Ready |
+| Movement | Flying, Hovering, Climbing, Swimming, Burrowing, Crawling |
+| Combat states | Concentration, Surprised, Sleeping, Bloodied, Stable, Dying, Dead |
+| Other rules | Burning, Falling, Cover, Lightly Obscured, Heavily Obscured, Heroic Inspiration |
 
-For a GitHub release, attach both this ZIP and the supplied `module.json` to
-tag `v1.9.0`. The manifest download URL targets that release and becomes usable
-after those assets are published.
+These cards explain rules; they do not apply actor or token effects. Actions and movement are labelled separately from conditions. Reference cards use a single-page layout without quest status or flipping, and can also be viewed in owned Hands.
 
-## Validation for 1.6.0
+### Update an existing reference deck
 
-JavaScript syntax and 57 browser-based checks passed using the installed
-Foundry 14.365 Hand template and simulated Foundry documents/hooks. Checks
-cover both selected decks, ownership, stale cards, repeated rendering,
-front/back flipping, and automatic popup/chat behavior. The pre-existing
-settings, migration, and automatic deal code are unchanged. The viewer now attaches flip handlers through the DialogV2 render event. Source-deck matching now uses Foundry Cards documents directly, fixing the uuid.split error. Regression tests also cover renamed cards and duplicate names across decks.
+Run **Create / Update Reference Deck** after updating the module. It adds missing references and replaces original book icons while preserving edited text, extra faces, custom artwork, and permissions.
+The old default name **Conditions — 2024** becomes **Rules Reference — 2024**; custom names remain.
 
-This package has not been tested in a running Foundry world; v13's legacy
-render hook was simulated. The existing v13/v14 compatibility declaration is
-retained. Before using in a session, open a player-owned Hand containing a
-configured card as that player, click View Card, flip it, and confirm no new
-chat post appears. Then deal another card to check your automatic preferences.
+Repeated setup does not duplicate identified cards, but it restores deleted references.
+Legacy cards are identified by card or first-face name; if both were changed before the upgrade, setup cannot recognize them automatically. Updated cards have stable identifiers so later renaming is safe.
+Previously dealt copies retain their own artwork. Reference setup does not change your selected quest decks.
 
-## Rules reference cards (1.8.0)
+Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each reference card and [RULES-LICENSE.md](RULES-LICENSE.md). This is a selected reference collection, not every possible game rule or effect.
 
-As GM, open **Configure Settings → Adventurer’s Cards → Choose Decks → Create / Update Reference Deck**.
-The shared **Rules Reference — 2024** deck contains 40 cards with matching Foundry symbols:
+## Testing and support
 
-- All 15 conditions.
-- Dodge, Hide, Dash, Disengage, Help, Ready.
-- Flying, Hovering, Climbing, Swimming, Burrowing, Crawling.
-- Concentration, Surprised, Sleeping, Bloodied, Stable, Dying, Dead.
-- Burning, Falling, Cover, Lightly Obscured, Heavily Obscured, Heroic Inspiration.
+Version 1.9.0 passed **94 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks cover quest viewing, flipping, ownership, multiple decks, automatic behavior, reference updates, and quest-emblem exclusions. Syntax, icon appearance, and ZIP structure were also checked.
 
-Players open the deck in **Cards** and click **View Card**. New decks grant default Observer
-permission. Reference cards explain rules; they do not apply effects to actors or tokens.
-Actions, movement, and other rules are labelled separately from conditions. Generic Foundry
-markers without a universal 2024 rule, such as Shocked or Frozen, are not presented as official conditions.
+Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
+Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.
 
-For an existing 1.7.0 deck, click the same setup button after updating the module and reloading:
-missing references are added, and original book icons are replaced. Existing text, extra faces,
-custom artwork, and ownership remain. The original default deck name becomes **Rules Reference — 2024**;
-a custom deck name is preserved. Running setup again does not duplicate identified cards.
-Cards gain stable reference identifiers, so subsequent renaming is safe. Legacy cards are
-recognized by their name or first face name; if both were renamed before upgrading, they cannot
-be identified automatically. Deleted references are restored when setup is run again.
+When [reporting a problem](https://github.com/davemagi1-ctrl/quest-viewer/issues), include your module, Foundry, and game-system versions, whether you were GM or player, steps to reproduce, and any relevant error message. Remove private world data from screenshots or logs.
 
-The deck is not automatically selected for dealing. Existing quest deck selections and automatic
-popup/chat behavior are unchanged. Reference cards in owned Hands can also be viewed.
-The icon update affects the shared deck; previously dealt copies retain their own artwork.
+## License
 
-Rules are adapted from SRD 5.2.1 under CC BY 4.0. Source details are in each card and
-[RULES-LICENSE.md](RULES-LICENSE.md). This is a reference selection, not every action, spell,
-class feature, or possible effect in the game.
-
-Validation: 86 browser checks passed using Foundry 14.365 Hand and Deck templates with simulated
-documents and hooks. Tests include legacy deck upgrades, custom-art preservation, no duplicate
-updates, Observer access, and existing quest behavior. Icon paths, previews, syntax, and ZIP
-structure were checked. Live multiplayer testing remains.
-
-## Quest emblem and new name (1.9.0)
-
-Quest Viewer is now **Adventurer’s Cards**. The internal module ID, URLs, flags, and settings keys remain `quest-viewer` for compatibility.
-
-As GM, open **Configure Settings → Adventurer’s Cards → Choose Decks**. Check your quest decks,
-then click **Apply Quest Emblem to Checked Decks**. This applies a parchment-scroll and wax-seal
-image to standard playing-card icons on source-card faces and deck covers. Text, card backs,
-extra faces, and custom artwork are preserved. The conditions/reference deck is always excluded,
-even when checked; flagged reference cards within another deck are also excluded.
-
-The button uses the currently checked decks; it does not change saved deck-selection settings.
-Use **Save Deck Selection** separately if you also want to change automatic popup sources.
-Existing dealt copies retain their current images. Future deals use the updated source faces.
-Run the button again after adding new quest cards. The emblem is bundled as an SVG with the
-module; no external artwork service is required.
-
-Validation for 1.9.0: 94 browser checks, including strict reference-deck exclusion and preserving
-custom artwork. Live-world multiplayer testing remains.
+Module code: [MIT](LICENSE). Adapted rules content: [CC BY 4.0 attribution](RULES-LICENSE.md).
