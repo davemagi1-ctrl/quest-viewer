@@ -12,6 +12,7 @@ Readable quest cards and 2024 rules references for Foundry VTT. Formerly **Quest
 - Multiple source decks, automatic popups when dealt to player-owned Hands, and optional chat posts.
 - **View Card** to reopen quests from a player's Hand without repeating chat messages.
 - GM-controlled **Active**, **Completed**, and **Failed** status badges.
+- **Show Card to Players** to share the visible side with all connected players or a selected group.
 - A shared scroll-and-wax-seal quest emblem that preserves custom artwork and excludes reference cards.
 - An optional shared deck of **40 rules reference cards** covering 2024 conditions, actions, movement, and combat.
 
@@ -28,7 +29,7 @@ Existing installations can use Foundry's module updater.
 
 For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.9.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.10.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
 
 ## Set up quest cards
 
@@ -48,8 +49,19 @@ Players open their Hand in **Cards** and click **View Card** beside a configured
 Click the displayed card, or focus it and press **Enter** or **Space**, to flip it.
 
 Reopening is local: it does not deal a card, repeat chat posts, or open another player's viewer.
-GMs can reopen cards even when automatic GM popups are disabled. Ordinary source decks and piles do not receive the quest button; the shared reference deck has its own direct viewing support.
+GMs can reopen cards even when automatic GM popups are disabled, and can open configured quest cards directly from selected source decks. Players use their owned Hands; the shared reference deck has its own direct viewing support. Piles do not receive the quest button.
 After changing deck selection, close and reopen an existing Hand window to refresh its buttons.
+
+### Show Card to Players
+
+As GM, open a quest or rules reference with **View Card**, then click **Show Card to Players**.
+All connected players start selected; uncheck anyone who should not see the card, then click **Show Card**.
+
+Only the currently visible side is sent. Players get a read-only popup and a private chat copy, without needing ownership of the source card. The reverse is not included and the shared copy cannot be flipped or edited. Reference cards share their single reference page.
+
+Sharing does not deal cards or change deck permissions. The GM viewer stays open after sharing or cancelling. Offline players are excluded; share again after they connect. The chat copy is a snapshot and does not follow later edits or quest-status changes.
+
+Manual sharing always creates its private chat copy, independently of the automatic **Post to Chat** setting. Other automatic popup and chat behavior remains unchanged.
 
 ### Quest status
 
@@ -96,7 +108,7 @@ Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each refer
 
 ## Testing and support
 
-Version 1.9.0 passed **94 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks cover quest viewing, flipping, ownership, multiple decks, automatic behavior, reference updates, and quest-emblem exclusions. Syntax, icon appearance, and ZIP structure were also checked.
+Version 1.10.0 passed **118 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks cover quest viewing, flipping, ownership, multiple decks, automatic behavior, reference updates, quest-emblem exclusions, recipient selection, GM authorization, and sharing only the visible side. Syntax and ZIP structure were also checked.
 
 Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
 Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.

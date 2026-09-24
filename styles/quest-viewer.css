@@ -1,5 +1,5 @@
 /* --------------------------------------------------------- */
-/* Quest Viewer popup                                       */
+/* Adventurer's Cards popup                                 */
 /* --------------------------------------------------------- */
 
 .qv-viewer-wrapper {
@@ -77,6 +77,13 @@
   text-align: center;
   padding: 30px 0 18px;
 }
+
+.qv-recipients { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; }
+.qv-recipient { display: flex; align-items: center; gap: 8px; }
+.qv-shared-card .qv-card { cursor: default; width: 100%; min-height: 0; }
+.qv-shared-card .qv-viewer-wrapper { padding: 8px; }
+.chat-message .qv-shared-card .qv-card { padding: 18px 14px; max-height: none; }
+.chat-message .qv-shared-card .qv-card-title { font-size: 20px; }
 
 .qv-status-display { text-align: center; margin: 0 0 16px; }
 .qv-status-badge {

@@ -470,10 +470,17 @@ async function showQuestCard(card) {
       resizable: true
     },
     content: buildCardHTML(card, showingFront),
-    buttons: [{
+    form: { closeOnSubmit: false },
+    buttons: [...(game.user.isGM ? [{
+      action: "showPlayers",
+      label: "Show Card to Players",
+      icon: "fa-solid fa-eye",
+      callback: () => chooseCardRecipients(card, showingFront)
+    }] : []), {
       action: "close",
       label: "Close",
-      icon: "fa-solid fa-xmark"
+      icon: "fa-solid fa-xmark",
+      callback: (_event, _button, dialog) => dialog.close()
     }]
   });
 
@@ -561,6 +568,7 @@ function canManuallyViewHand(hand) {
   if (hand.type === "deck" && isConditionsDeck(hand)) {
     return game.user.isGM || hand.testUserPermission(game.user, "OBSERVER");
   }
+  if (hand.type === "deck") return game.user.isGM && getSelectedDeckIds().includes(hand.id);
   return hand.type === "hand" && (game.user.isGM || hand.testUserPermission(game.user, "OWNER"));
 }
 
@@ -631,6 +639,83 @@ async function addViewCardButtons(app, html) {
 Hooks.on("renderApplicationV2", addViewCardButtons);
 Hooks.on("renderCardHand", addViewCardButtons);
 Hooks.on("renderCardDeckConfig", addViewCardButtons);
+
+// Use server-authorized whispered ChatMessages rather than trusting socket sender IDs.
+// Only the visible side is serialized; recipients never need ownership of the source.
+function sharedCardContent(card, showingFront) {
+  const template = document.createElement("template");
+  template.innerHTML = buildCardHTML(card, showingFront);
+  template.content.querySelectorAll(".qv-status-control, .qv-card-hint").forEach(node => node.remove());
+  const article = template.content.querySelector(".qv-card");
+  for (const attribute of ["data-qv-flip", "role", "tabindex", "aria-label"]) article.removeAttribute(attribute);
+  return `<div class="qv-shared-card">${template.innerHTML}</div>`;
+}
+
+async function shareCardToPlayers(card, showingFront, recipientIds) {
+  if (!game.user.isGM) throw new Error("Only the GM can show cards to players.");
+  if (card.parent?.cards.get(card.id) !== card
+    || !(isConditionCard(card) || await isConfiguredQuestCard(card))) {
+    throw new Error("This card is no longer available for sharing.");
+  }
+  const recipients = [...new Set(recipientIds)].filter(id => {
+    const user = game.users.get(id);
+    return user && !user.isGM && user.active;
+  });
+  if (!recipients.length) throw new Error("Select at least one connected player.");
+  if (!game.user.isGM || card.parent.cards.get(card.id) !== card) throw new Error("This card is no longer available for sharing.");
+  return ChatMessage.create({
+    speaker: { alias: game.user.name },
+    whisper: recipients,
+    blind: false,
+    content: sharedCardContent(card, showingFront),
+    flags: { [MODULE_ID]: { sharedCard: true } }
+  });
+}
+
+async function chooseCardRecipients(card, showingFront) {
+  if (!game.user.isGM) return;
+  const players = Array.from(game.users.values()).filter(user => !user.isGM && user.active);
+  if (!players.length) {
+    ui.notifications.warn("No players are connected. Try again when a player joins.");
+    return;
+  }
+  const choices = players.map(user => `<label class="qv-recipient"><input type="checkbox" name="recipient" value="${escapeHTML(user.id)}" checked> ${escapeHTML(user.name)}</label>`).join("");
+  const selected = await foundry.applications.api.DialogV2.wait({
+    window: { title: "Show Card to Players" },
+    content: `<p>Show <strong>${escapeHTML(card.name)}</strong> (${isConditionCard(card) ? "reference" : showingFront ? "front" : "back"}). Only this side will be shared.</p>
+      <p>All connected players are selected. Uncheck anyone who should not see it.</p>
+      <fieldset class="qv-recipients"><legend>Players</legend>${choices}</fieldset>
+      <p>Selected players get a popup and a private chat copy. This does not deal the card or change ownership.</p>`,
+    buttons: [
+      { action: "show", label: "Show Card", icon: "fa-solid fa-eye", callback: (_event, _button, dialog) =>
+        Array.from(dialog.element.querySelectorAll('input[name="recipient"]:checked'), input => input.value) },
+      { action: "cancel", label: "Cancel", default: true, callback: () => null }
+    ],
+    rejectClose: false
+  });
+  if (!Array.isArray(selected)) return;
+  try {
+    await shareCardToPlayers(card, showingFront, selected);
+    ui.notifications.info("Card shared with the selected connected players.");
+  } catch (err) {
+    console.error(`${MODULE_ID} | Could not share card`, err);
+    ui.notifications.error(err.message);
+  }
+}
+
+const shownSharedMessages = new Set();
+Hooks.on("createChatMessage", message => {
+  if (!message.author?.isGM || !message.getFlag(MODULE_ID, "sharedCard")
+    || game.user.isGM || !message.whisper?.includes(game.user.id)
+    || !message.isContentVisible || shownSharedMessages.has(message.id)) return;
+  shownSharedMessages.add(message.id);
+  if (shownSharedMessages.size > 100) shownSharedMessages.delete(shownSharedMessages.values().next().value);
+  new foundry.applications.api.DialogV2({
+    window: { title: "Card shared by the GM", resizable: true },
+    content: message.content,
+    buttons: [{ action: "close", label: "Close", icon: "fa-solid fa-xmark" }]
+  }).render({ force: true });
+});
 
 // Adapted from SRD 5.2.1 (CC BY 4.0). See RULES-LICENSE.md.
 const CONDITION_ATTRIBUTION = `This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at <a href="https://www.dndbeyond.com/srd" target="_blank" rel="noopener noreferrer">https://www.dndbeyond.com/srd</a>. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener noreferrer">https://creativecommons.org/licenses/by/4.0/legalcode</a>.`;

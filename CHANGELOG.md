@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.0
+- Added GM-only Show Card to Players for quests and rules references, with connected-player selection.
+- Shares only the currently visible side as a read-only popup and private chat copy; the reverse is not sent.
+- Uses Foundry's authored whisper messages to check the GM sender and intended recipients without changing ownership or dealing cards.
+- GMs can now open configured quest cards directly from source decks.
+- Keeps the GM viewer open after sharing or cancelling; preserves automatic popup/chat settings, quest status and reference-deck behavior.
+
 ## 1.9.0
 - Renamed the displayed module to Adventurer’s Cards; internal quest-viewer ID and saved settings remain compatible.
 - Added a bundled scroll-and-wax-seal quest emblem and a GM button to apply it to checked quest decks.
