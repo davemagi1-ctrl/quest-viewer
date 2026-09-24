@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.0
+- Added a GM-only Card Creator in module settings and Choose Decks.
+- Creates a quest in an existing non-reference deck with title, description, objectives, rewards and optional back text.
+- Includes a front preview, automatic quest emblem and Active status. Plain text is escaped and line breaks preserved.
+- Objectives are descriptive lists, not tracked checkboxes. Empty back text uses the decorative default.
+- Rejects player creation, invalid destinations and conditions/reference decks. Does not deal cards, change deck selection or post chat.
+
 ## 1.10.0
 - Added GM-only Show Card to Players for quests and rules references, with connected-player selection.
 - Shares only the currently visible side as a read-only popup and private chat copy; the reverse is not sent.

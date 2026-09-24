@@ -1,0 +1,21 @@
+<div class="qv-card-creator">
+  {{#if hasDecks}}
+  <label>Destination deck
+    <select name="deckId" required>{{#each decks}}<option value="{{id}}">{{name}}{{#if configured}} (configured){{/if}}</option>{{/each}}</select>
+  </label>
+  <p class="notes">Only quest decks are listed. Select the destination in Choose Decks to enable quest viewing and automatic popups. Your saved deck selection is not changed here.</p>
+  <label>Title <input name="title" type="text" required maxlength="200" placeholder="A missing caravan"></label>
+  <label>Description <textarea name="description" rows="5" maxlength="10000" placeholder="What do the adventurers need to know?"></textarea></label>
+  <label>Objectives <textarea name="objectives" rows="3" maxlength="5000" placeholder="Find the caravan&#10;Return the missing supplies"></textarea></label>
+  <p class="notes">One objective per line. Objectives appear as a list, not completion checkboxes.</p>
+  <label>Rewards <textarea name="rewards" rows="2" maxlength="5000" placeholder="50 gp and the merchant's gratitude"></textarea></label>
+  <label>Back text (optional) <textarea name="backText" rows="3" maxlength="10000" placeholder="Leave blank for the decorative quest back"></textarea></label>
+  <p class="notes">Use plain text; line breaks are preserved. The quest emblem and Active status are added automatically. Back text is visible to anyone who can flip the card.</p>
+  <footer class="qv-sheet-footer">
+    <button type="button" data-action="preview"><i class="fa-solid fa-eye"></i> Preview Front</button>
+    <button type="submit"><i class="fa-solid fa-plus"></i> Create Card</button>
+  </footer>
+  {{else}}
+  <p>Create a Card Stack of type Deck in Foundry's Cards sidebar first, then reopen this creator. Conditions and rules reference decks are excluded.</p>
+  {{/if}}
+</div>

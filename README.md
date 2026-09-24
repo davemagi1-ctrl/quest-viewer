@@ -8,6 +8,7 @@ Readable quest cards and 2024 rules references for Foundry VTT. Formerly **Quest
 
 ## Features
 
+- GM **Card Creator** with a preview, objectives, rewards, and optional back text.
 - Parchment quest cards with front/back text, mouse and keyboard flipping, and no artwork required.
 - Multiple source decks, automatic popups when dealt to player-owned Hands, and optional chat posts.
 - **View Card** to reopen quests from a player's Hand without repeating chat messages.
@@ -29,7 +30,17 @@ Existing installations can use Foundry's module updater.
 
 For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.10.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.11.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+
+## Create a quest card
+
+As GM, open **Configure Settings → Adventurer’s Cards → Card Creator → Create Quest Card**, or click **Create Quest Card** inside **Choose Decks**.
+
+Choose an existing destination deck and enter a title. Add a description, objectives (one per line), rewards, and optional back text. Use plain text; line breaks are preserved. **Preview Front** lets you check the card before saving. Click **Create Card** to save it and open its deck.
+
+New cards receive the quest emblem and Active status. Objectives are a descriptive list, not tickable progress tracking. Blank back text keeps the decorative quest back. Back text is readable by players who can flip the card, so do not use it for GM-only notes.
+
+The creator excludes conditions/rules reference decks and does not modify deck selections, deal cards, or post to chat. Configure the destination in **Choose Decks** to enable quest viewing and automatic popups. If there are no eligible decks, create a Card Stack of type **Deck** in Foundry's Cards sidebar first. You can edit saved cards through Foundry's normal card editor.
 
 ## Set up quest cards
 
@@ -108,7 +119,7 @@ Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each refer
 
 ## Testing and support
 
-Version 1.10.0 passed **118 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks cover quest viewing, flipping, ownership, multiple decks, automatic behavior, reference updates, quest-emblem exclusions, recipient selection, GM authorization, and sharing only the visible side. Syntax and ZIP structure were also checked.
+Version 1.11.0 passed **133 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks cover quest viewing, flipping, ownership, multiple decks, automatic behavior, reference updates, quest-emblem exclusions, recipient selection, GM authorization, sharing only the visible side, and card creation. Syntax and ZIP structure were also checked.
 
 Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
 Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.

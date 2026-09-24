@@ -30,6 +30,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
       selectAll: QuestViewerDeckSelector.#onSelectAll,
       createConditions: QuestViewerDeckSelector.#onCreateConditions,
       applyQuestIcon: QuestViewerDeckSelector.#onApplyQuestIcon,
+      createQuest: () => new QuestCardCreator().render({ force: true }),
       clearAll: QuestViewerDeckSelector.#onClearAll
     }
   };
@@ -159,7 +160,102 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
   }
 }
 
+class QuestCardCreator extends HandlebarsApplicationMixin(ApplicationV2) {
+  static DEFAULT_OPTIONS = {
+    id: "quest-viewer-card-creator", tag: "form",
+    window: { title: "Adventurer’s Cards — Card Creator", resizable: true },
+    position: { width: 560, height: "auto" },
+    form: { closeOnSubmit: false, handler: QuestCardCreator.#onSubmit },
+    actions: { preview: QuestCardCreator.#onPreview }
+  };
+  static PARTS = { form: { template: "modules/quest-viewer/templates/card-creator.hbs" } };
+
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
+    const selected = new Set(getSelectedDeckIds());
+    const decks = game.user.isGM ? Array.from(game.cards.values())
+      .filter(deck => deck.type === "deck" && !isConditionsDeck(deck))
+      .sort((a, b) => Number(selected.has(b.id)) - Number(selected.has(a.id)) || String(a.name || "").localeCompare(String(b.name || "")))
+      .map(deck => ({ id: deck.id, name: deck.name || "Unnamed Deck", configured: selected.has(deck.id) })) : [];
+    return { ...context, decks, hasDecks: decks.length > 0 };
+  }
+
+  static #onPreview() {
+    if (!game.user.isGM) return;
+    try {
+      const data = Object.fromEntries(new FormData(this.element));
+      const card = questCardData(data);
+      new foundry.applications.api.DialogV2({
+        window: { title: "Quest card preview", resizable: true },
+        content: sharedCardContent(card, true),
+        buttons: [{ action: "close", label: "Close" }]
+      }).render({ force: true });
+    } catch (err) { ui.notifications.error(err.message); }
+  }
+
+  static async #onSubmit(_event, _form, formData) {
+    if (this.creating) return;
+    this.creating = true;
+    const submit = this.element.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      const card = await createQuestCard(formData.object);
+      ui.notifications.info(`Created ${card.name}. Select its deck in Choose Decks to enable quest viewing and automatic popups.`);
+      await this.close();
+      card.parent.sheet?.render({ force: true });
+    } catch (err) {
+      console.error(`${MODULE_ID} | Card creation failed`, err);
+      ui.notifications.error(err.message);
+    } finally {
+      this.creating = false;
+      if (submit) submit.disabled = false;
+    }
+  }
+}
+
+function questCardData(input) {
+  const read = (key, limit) => {
+    const value = String(input[key] ?? "").trim();
+    if (value.length > limit) throw new Error(`${key} is too long (maximum ${limit} characters).`);
+    return value;
+  };
+  const name = read("title", 200);
+  if (!name) throw new Error("Enter a title for your quest card.");
+  const description = read("description", 10000);
+  const objectives = read("objectives", 5000).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const rewards = read("rewards", 5000);
+  const backText = read("backText", 10000);
+  const paragraphs = value => value.split(/\r?\n\s*\r?\n/).filter(Boolean)
+    .map(part => `<p>${escapeHTML(part).replace(/\r?\n/g, "<br>")}</p>`).join("");
+  const text = paragraphs(description)
+    + (objectives.length ? `<h3>Objectives</h3><ul>${objectives.map(line => `<li>${escapeHTML(line)}</li>`).join("")}</ul>` : "")
+    + (rewards ? `<h3>Rewards</h3>${paragraphs(rewards)}` : "");
+  return {
+    name, description: text, face: 0,
+    faces: [{ name, text: text || "<p>No quest details have been added yet.</p>", img: QUEST_ICON }],
+    back: { name: "Quest", text: paragraphs(backText), img: QUEST_ICON },
+    flags: { [MODULE_ID]: { status: "active" } }
+  };
+}
+
+async function createQuestCard(input) {
+  if (!game.user.isGM) throw new Error("Only the GM can create quest cards.");
+  const deck = game.cards.get(input.deckId);
+  if (!deck || deck.type !== "deck" || isConditionsDeck(deck)) {
+    throw new Error("Choose an existing quest deck. Rules reference decks cannot be used.");
+  }
+  const data = questCardData(input);
+  const [card] = await deck.createEmbeddedDocuments("Card", [data]);
+  if (!card) throw new Error("Foundry did not return a new card. Check the deck before retrying.");
+  return card;
+}
+
 Hooks.once("init", () => {
+  game.settings.registerMenu(MODULE_ID, "cardCreator", {
+    name: "Card Creator", label: "Create Quest Card", icon: "fa-solid fa-feather-pointed",
+    hint: "Create a quest card with objectives, rewards, and the quest emblem.",
+    type: QuestCardCreator, restricted: true
+  });
   // Hidden machine-readable list of selected deck IDs.
   game.settings.register(MODULE_ID, SELECTED_DECKS_KEY, {
     name: "Selected Decks",
