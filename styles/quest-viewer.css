@@ -80,6 +80,7 @@
 
 .qv-recipients { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; }
 .qv-recipient { display: flex; align-items: center; gap: 8px; }
+.qv-create-quest-sidebar { width: 100%; flex: 0 0 auto; margin: 4px 0; }
 .qv-card-creator { display: grid; gap: 10px; max-height: 75vh; overflow-y: auto; padding-right: 4px; }
 .qv-card-creator > label { display: grid; gap: 5px; font-weight: bold; }
 .qv-card-creator textarea { width: 100%; resize: vertical; min-height: 60px; }

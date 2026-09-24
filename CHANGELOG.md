@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.1
+- Added a GM-only Create Quest Card button to the Cards sidebar, directly below the existing creation controls.
+- Supports sidebar rerenders, pop-out directories, and legacy jQuery render events without duplicate buttons.
+- Retains the settings shortcuts and preserves other modules' sidebar controls.
+
 ## 1.11.0
 - Added a GM-only Card Creator in module settings and Choose Decks.
 - Creates a quest in an existing non-reference deck with title, description, objectives, rewards and optional back text.

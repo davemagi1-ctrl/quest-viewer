@@ -213,6 +213,28 @@ class QuestCardCreator extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
+// Cards sidebar, including its pop-out and legacy jQuery render hook.
+Hooks.on("renderCardsDirectory", (_app, html) => {
+  const root = html?.querySelector ? html : html?.[0];
+  if (!root) return;
+  root.querySelectorAll(".qv-create-quest-sidebar").forEach(button => button.remove());
+  if (!game.user.isGM) return;
+  const header = root.querySelector(".directory-header");
+  if (!header) return;
+  const button = root.ownerDocument.createElement("button");
+  button.type = "button";
+  button.className = "qv-create-quest-sidebar";
+  button.innerHTML = '<i class="fa-solid fa-feather-pointed" aria-hidden="true"></i> Create Quest Card';
+  button.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (game.user.isGM) new QuestCardCreator().render({ force: true });
+  });
+  const actions = header.querySelector(".header-actions");
+  if (actions) actions.after(button);
+  else header.append(button);
+});
+
 function questCardData(input) {
   const read = (key, limit) => {
     const value = String(input[key] ?? "").trim();
