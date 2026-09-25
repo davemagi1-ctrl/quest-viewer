@@ -580,24 +580,34 @@ async function setQuestNotes(card, notes) {
   if (typeof notes !== 'string' || notes.length > 10000) throw new Error("Notes must be at most 10,000 characters.");
   await card.setFlag(MODULE_ID, 'notes', notes);
 }
-async function editQuestAppearance(card) {
-  if (!game.user.isGM || isConditionCard(card)) return;
-  const options = (values, selected) => Object.entries(values).map(([key, label]) => `<option value="${key}" ${key === selected ? 'selected' : ''}>${label}</option>`).join('');
-  const data = await foundry.applications.api.DialogV2.wait({
-    window: { title: 'Font & Headings' },
-    content: `<label>Font<select name="font">${options(QUEST_FONTS, validFont(questFlag(card, 'font')))}</select></label>
-      <label>Text size<select name="fontSize">${options(QUEST_SIZES, validFontSize(questFlag(card, 'fontSize')))}</select></label>
-      <label><input type="checkbox" name="hideHeadings" ${questFlag(card, 'hideHeadings') === true ? 'checked' : ''}> Hide Objectives / Rewards headings</label>`,
-    buttons: [{ action: 'save', label: 'Save', callback: (_e, _b, dialog) => ({
-      font: dialog.element.querySelector('[name="font"]').value,
-      fontSize: dialog.element.querySelector('[name="fontSize"]').value,
-      hideHeadings: dialog.element.querySelector('[name="hideHeadings"]').checked
-    }) }, { action: 'cancel', label: 'Cancel', default: true }], rejectClose: false
-  });
-  if (!data || typeof data !== 'object') return;
+const questNotesEditors = new Map();
+async function openQuestNotes(card) {
   try {
-    if (!game.user.isGM || card.parent?.cards.get(card.id) !== card) throw new Error('This card is no longer available.');
-    await card.update({ [`flags.${MODULE_ID}.font`]: validFont(data.font), [`flags.${MODULE_ID}.fontSize`]: validFontSize(data.fontSize), [`flags.${MODULE_ID}.hideHeadings`]: data.hideHeadings === true });
+    await assertQuestProgressAccess(card);
+    const key = card.uuid || `${card.parent.id}.${card.id}`;
+    const existing = questNotesEditors.get(key);
+    if (existing) { existing.bringToFront?.(); return existing; }
+    const editor = new foundry.applications.api.DialogV2({
+      window: { title: `Notes — ${card.name}`, resizable: true },
+      position: { width: 480 },
+      form: { closeOnSubmit: false },
+      content: `<label class="qv-notes-editor">Notes on this card copy
+        <textarea data-qv-notes maxlength="10000" rows="10">${escapeHTML(questFlag(card, 'notes') || '')}</textarea>
+        </label><p>Visible to the GM and other owners of this Hand. Save &amp; Close keeps your changes; Cancel or the window X discards them.</p>`,
+      buttons: [
+        { action: 'save', label: 'Save & Close', icon: 'fa-solid fa-floppy-disk', callback: async (_event, _button, dialog) => {
+          try {
+            await setQuestNotes(card, dialog.element.querySelector('[data-qv-notes]').value);
+            await dialog.close();
+          } catch (err) { ui.notifications.error(err.message); }
+        } },
+        { action: 'cancel', label: 'Cancel', callback: (_event, _button, dialog) => dialog.close() }
+      ]
+    });
+    questNotesEditors.set(key, editor);
+    editor.addEventListener('close', () => questNotesEditors.delete(key), { once: true });
+    editor.render({ force: true });
+    return editor;
   } catch (err) { ui.notifications.error(err.message); }
 }
 
@@ -717,11 +727,7 @@ function buildCardHTML(card, showingFront) {
       ${canEditQuestProgress(card) ? `<label class="qv-status-control">Quest status
         <select aria-label="Quest status" data-qv-status>
           ${Object.entries(QUEST_STATUSES).map(([value, label]) => `<option value="${value}"${value === getQuestStatus(card) ? " selected" : ""}>${label}</option>`).join("")}
-        </select></label><label class="qv-notes-control">Notes on this card copy
-          <textarea data-qv-notes maxlength="10000" rows="3">${escapeHTML(questFlag(card, 'notes') || '')}</textarea>
-          <button type="button" data-qv-save-notes>Save Notes</button>
-          <small>Visible to the GM and other owners of this Hand.</small>
-        </label>` : ""}
+        </select></label>` : ""}
     </div>
   `;
 }
@@ -729,7 +735,6 @@ function buildCardHTML(card, showingFront) {
 async function showQuestCard(card) {
   const DialogV2 = foundry.applications.api.DialogV2;
   let showingFront = true;
-  let notesDraft = null;
 
   const viewer = new DialogV2({
     window: {
@@ -743,7 +748,7 @@ async function showQuestCard(card) {
       label: "Show Card to Players",
       icon: "fa-solid fa-eye",
       callback: () => chooseCardRecipients(card, showingFront)
-    }, ...(!isConditionCard(card) ? [{ action: "appearance", label: "Font & Headings", icon: "fa-solid fa-font", callback: () => editQuestAppearance(card) }] : [])] : []), {
+    }] : []), ...(canEditQuestProgress(card) ? [{ action: "notes", label: "Notes", icon: "fa-solid fa-note-sticky", callback: () => openQuestNotes(card) }] : []), {
       action: "close",
       label: "Close",
       icon: "fa-solid fa-xmark",
@@ -758,17 +763,6 @@ async function showQuestCard(card) {
       const currentWrapper = dialog.element.querySelector(".qv-viewer-wrapper");
       if (currentWrapper) currentWrapper.outerHTML = buildCardHTML(card, showingFront);
       const attachFlip = () => {
-        const notes = dialog.element.querySelector('[data-qv-notes]');
-        if (notes && notesDraft !== null) notes.value = notesDraft;
-        notes?.addEventListener('input', () => { notesDraft = notes.value; });
-        dialog.element.querySelector('[data-qv-save-notes]')?.addEventListener('click', async event => {
-          event.preventDefault(); event.stopPropagation();
-          const value = notes.value;
-          event.currentTarget.disabled = true;
-          try { await setQuestNotes(card, value); if (notesDraft === value) notesDraft = null; }
-          catch (err) { ui.notifications.error(err.message); }
-          finally { dialog.element.querySelector('[data-qv-save-notes]')?.removeAttribute('disabled'); }
-        });
         for (const input of dialog.element.querySelectorAll('[data-qv-check]')) {
           input.addEventListener('click', event => event.stopPropagation());
           input.addEventListener('keydown', event => event.stopPropagation());

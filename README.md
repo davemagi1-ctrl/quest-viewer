@@ -32,7 +32,7 @@ Existing installations can use Foundry's module updater.
 
 For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.12.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.12.1**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
 
 ## Create a quest card
 
@@ -86,7 +86,7 @@ Status belongs to each individual card. Separate dealt copies track progress ind
 
 Click an objective's checkbox to save it immediately without flipping the card. Cards created by earlier versions with an Objectives heading and a list are recognized automatically. Editing or replacing legacy objective text can give that row a new identity; new creator cards carry stable row IDs in their HTML.
 
-Write in **Notes on this card copy**, then click **Save Notes**. Notes are shared with the GM and other owners of the same Hand, not private to an individual player. Unsaved note text is retained when the open viewer refreshes. Notes, status and checks stay on that copy; returning/re-dealing uses Foundry's source-copy behavior.
+Click **Notes** to open a separate editor, write your text, then click **Save & Close**. Cancel or the window X discards unsaved changes. Notes are shared with the GM and other owners of the same Hand, not private to an individual player. Unsaved note text is retained when the open viewer refreshes. Notes, status and checks stay on that copy; returning/re-dealing uses Foundry's source-copy behavior.
 
 ### Deck edits and appearance
 
@@ -138,7 +138,7 @@ Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each refer
 
 ## Testing and support
 
-Version 1.12.0 passed **178 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Syntax and ZIP structure were also checked.
+Version 1.12.1 passed **185 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Syntax and ZIP structure were also checked.
 
 Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
 Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.

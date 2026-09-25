@@ -92,8 +92,8 @@
 .qv-objectives input[type="checkbox"] { appearance: auto; flex: 0 0 18px; width: 18px; height: 18px; margin-top: 4px; accent-color: #57432a; }
 .qv-objectives input[type="checkbox"]::before, .qv-objectives input[type="checkbox"]::after { display: none; }
 .qv-objectives input:checked + span { text-decoration: line-through; opacity: 0.75; }
-.qv-notes-control { display: grid; gap: 6px; width: 100%; max-width: 430px; margin-top: 12px; }
-.qv-notes-control textarea { width: 100%; resize: vertical; min-height: 72px; }
+.qv-notes-editor { display: grid; gap: 6px; width: 100%; }
+.qv-notes-editor textarea { width: 100%; resize: vertical; min-height: 220px; }
 .qv-deal-toolbar { display: flex; padding: 6px; }
 .qv-deal-select { flex: 0 0 18px !important; width: 18px; margin-right: 8px; }
 .qv-card-creator > .qv-inline-option { display: flex; align-items: center; font-weight: normal; }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.1
+
+- Keep font and heading options exclusively in Card Creator; remove the viewer appearance button.
+- Replace the inline notes area with a compact Notes button and a separate Save & Close editor.
+- Preserve saved notes, permissions, status, objectives and existing card appearance.
+
 ## 1.12.0
 - Hand owners can change Active/Completed/Failed status, check or uncheck objectives, and save notes on their card copy.
 - Showing a card never writes progress. When a recipient has one matching owned copy, shared popups and chat render its status and checks instead of the source-deck defaults.
