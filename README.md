@@ -12,7 +12,9 @@ Readable quest cards and 2024 rules references for Foundry VTT. Formerly **Quest
 - Parchment quest cards with front/back text, mouse and keyboard flipping, and no artwork required.
 - Multiple source decks, automatic popups when dealt to player-owned Hands, and optional chat posts.
 - **View Card** to reopen quests from a player's Hand without repeating chat messages.
-- GM-controlled **Active**, **Completed**, and **Failed** status badges.
+- **Active**, **Completed**, and **Failed** status controlled by GMs and Hand owners, with objective checkboxes and saved notes.
+- Automatic deck-to-Hand content updates that preserve each copy's progress.
+- Selective dealing, optional section headings, and font/size choices.
 - **Show Card to Players** to share the visible side with all connected players or a selected group.
 - A shared scroll-and-wax-seal quest emblem that preserves custom artwork and excludes reference cards.
 - An optional shared deck of **40 rules reference cards** covering 2024 conditions, actions, movement, and combat.
@@ -30,7 +32,7 @@ Existing installations can use Foundry's module updater.
 
 For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.11.1**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.12.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
 
 ## Create a quest card
 
@@ -38,7 +40,7 @@ As GM, open the **Cards sidebar** on the right and click **Create Quest Card**, 
 
 Choose an existing destination deck and enter a title. Add a description, objectives (one per line), rewards, and optional back text. Use plain text; line breaks are preserved. **Preview Front** lets you check the card before saving. Click **Create Card** to save it and open its deck.
 
-New cards receive the quest emblem and Active status. Objectives are a descriptive list, not tickable progress tracking. Blank back text keeps the decorative quest back. Back text is readable by players who can flip the card, so do not use it for GM-only notes.
+New cards receive the quest emblem and Active status. Objectives become checkboxes; start a line with `[x]` to check it initially or `[ ]` to leave it unchecked. Objectives/Rewards headings are hidden by default; enable **Show Objectives / Rewards headings** if wanted. Choose Classic serif, Clear sans-serif, or Monospace and Small, Normal, or Large text. Blank back text keeps the decorative quest back. Back text is readable by players who can flip the card, so do not use it for GM-only notes.
 
 The creator excludes conditions/rules reference decks and does not modify deck selections, deal cards, or post to chat. Configure the destination in **Choose Decks** to enable quest viewing and automatic popups. If there are no eligible decks, create a Card Stack of type **Deck** in Foundry's Cards sidebar first. You can edit saved cards through Foundry's normal card editor.
 
@@ -70,16 +72,33 @@ All connected players start selected; uncheck anyone who should not see the card
 
 Only the currently visible side is sent. Players get a read-only popup and a private chat copy, without needing ownership of the source card. The reverse is not included and the shared copy cannot be flipped or edited. Reference cards share their single reference page.
 
-Sharing does not deal cards or change deck permissions. The GM viewer stays open after sharing or cancelling. Offline players are excluded; share again after they connect. The chat copy is a snapshot and does not follow later edits or quest-status changes.
+Sharing does not deal cards, change deck permissions, or write status, checks, or notes. The GM viewer stays open after sharing or cancelling. Offline players are excluded; share again after they connect. Shared content is a snapshot. When a player has one matching owned Hand copy, the popup and chat display use that copy's status and checks, instead of the source-deck defaults. If several matching copies are owned and no specific Hand was shared, the source snapshot is shown. Notes are never included in shared snapshots. To edit progress, open the card in your Hand.
 
 Manual sharing always creates its private chat copy, independently of the automatic **Post to Chat** setting. Other automatic popup and chat behavior remains unchanged.
 
 ### Quest status
 
-As GM, open a quest and use **Quest status** to choose **Active**, **Completed**, or **Failed**.
-Players see the badge in the viewer and their owned Hand. Existing cards default to Active.
+GMs and players with **Owner** permission on the receiving Hand can open a quest and use **Quest status** to choose **Active**, **Completed**, or **Failed**. Existing cards without a status default to Active; opening or sharing them does not save that default over existing progress.
 
 Status belongs to each individual card. Separate dealt copies track progress independently; returning a card does not copy its status back to the source deck. Open viewers refresh on card updates. Status changes do not post to chat.
+
+### Objectives and notes
+
+Click an objective's checkbox to save it immediately without flipping the card. Cards created by earlier versions with an Objectives heading and a list are recognized automatically. Editing or replacing legacy objective text can give that row a new identity; new creator cards carry stable row IDs in their HTML.
+
+Write in **Notes on this card copy**, then click **Save Notes**. Notes are shared with the GM and other owners of the same Hand, not private to an individual player. Unsaved note text is retained when the open viewer refreshes. Notes, status and checks stay on that copy; returning/re-dealing uses Foundry's source-copy behavior.
+
+### Deck edits and appearance
+
+Editing a source card in a configured quest deck updates matching cards already in Hands: title, description, faces, artwork, back and font/headings options. An active GM performs the updates; reconciliation also runs when the GM loads the world. Matching uses source deck and card IDs, not names. Custom edits to the corresponding content of a Hand copy are replaced by source edits.
+
+Status, checked objectives and notes are never copied over from the deck during these updates. Conditions/reference cards and piles are excluded. If no GM is connected, content catches up when a GM next loads the world.
+
+For an existing quest, the GM can open **View Card → Font & Headings** to change font, size or hide existing Objectives/Rewards headings. Changing the source card's appearance propagates to Hand copies. Heading suppression does not remove the objectives or rewards.
+
+### Deal selected cards
+
+As GM, open a configured quest deck. Check the selection boxes beside the available cards, click **Deal Selected**, choose a destination Hand, then click **Deal Cards**. Already-drawn cards cannot be selected. The normal automatic popup and chat preferences still apply. This uses Foundry's card passing and does not duplicate the selected cards into multiple Hands.
 
 ### Apply the quest emblem
 
@@ -88,7 +107,7 @@ In **Choose Decks**, check your quest decks and click **Apply Quest Emblem to Ch
 The emblem replaces default playing-card images on source-card faces and deck covers. Custom artwork, text, and backs are preserved. **The conditions/rules reference deck is always excluded, even when checked**, and flagged reference cards in other decks are skipped.
 
 This button uses the current checkboxes without saving deck-selection settings. Use **Save Deck Selection** separately to change automatic popup sources.
-Already-dealt copies keep their images; future deals inherit the source images. Run the button again for newly added quest cards.
+Future deals inherit the source images. In configured quest decks, automatic content synchronization also updates existing Hand copies. Run the button again for newly added quest cards.
 
 ## Rules Reference — 2024
 
@@ -119,7 +138,7 @@ Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each refer
 
 ## Testing and support
 
-Version 1.11.1 passed **142 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks cover quest viewing, flipping, ownership, multiple decks, automatic behavior, reference updates, quest-emblem exclusions, recipient selection, GM authorization, sharing only the visible side, card creation, and the Cards sidebar shortcut. Syntax and ZIP structure were also checked.
+Version 1.12.0 passed **178 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Syntax and ZIP structure were also checked.
 
 Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
 Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.

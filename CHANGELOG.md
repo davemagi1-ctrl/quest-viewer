@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.0
+- Hand owners can change Active/Completed/Failed status, check or uncheck objectives, and save notes on their card copy.
+- Showing a card never writes progress. When a recipient has one matching owned copy, shared popups and chat render its status and checks instead of the source-deck defaults.
+- Creator objectives are checklists; optional [x] / [ ] prefixes set initial checks. Legacy Objectives lists are recognized in the viewer.
+- Deck content edits synchronize name, description, faces, back and presentation to matching Hand copies through the active GM. Status, checks and notes are preserved; ready-time reconciliation catches up existing copies.
+- GM checkbox selection and Deal Selected controls pass specific undrawn quests to a chosen Hand.
+- Objectives/Rewards headings are optional and hidden by default on new cards. Existing cards have a GM Font & Headings control.
+- Added classic serif, clear sans-serif and monospace fonts, with small, normal and large text.
+- Notes remain on the copy and are not shared in Show Card snapshots. Existing reference-deck behavior is preserved.
+
 ## 1.11.1
 - Added a GM-only Create Quest Card button to the Cards sidebar, directly below the existing creation controls.
 - Supports sidebar rerenders, pop-out directories, and legacy jQuery render events without duplicate buttons.

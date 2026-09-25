@@ -81,6 +81,22 @@
 .qv-recipients { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; }
 .qv-recipient { display: flex; align-items: center; gap: 8px; }
 .qv-create-quest-sidebar { width: 100%; flex: 0 0 auto; margin: 4px 0; }
+.qv-card.qv-font-sans { font-family: Arial, Helvetica, sans-serif; }
+.qv-card.qv-font-mono { font-family: Consolas, 'Courier New', monospace; }
+.qv-card :is(h1, h2, h3) { font-family: inherit; color: inherit; }
+.qv-card.qv-size-small .qv-card-body { font-size: 15px; }
+.qv-card.qv-size-large .qv-card-body { font-size: 21px; }
+.qv-objectives { list-style: none; padding-left: 0; }
+.qv-objectives > li { margin: 8px 0; }
+.qv-objectives label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.qv-objectives input[type="checkbox"] { appearance: auto; flex: 0 0 18px; width: 18px; height: 18px; margin-top: 4px; accent-color: #57432a; }
+.qv-objectives input[type="checkbox"]::before, .qv-objectives input[type="checkbox"]::after { display: none; }
+.qv-objectives input:checked + span { text-decoration: line-through; opacity: 0.75; }
+.qv-notes-control { display: grid; gap: 6px; width: 100%; max-width: 430px; margin-top: 12px; }
+.qv-notes-control textarea { width: 100%; resize: vertical; min-height: 72px; }
+.qv-deal-toolbar { display: flex; padding: 6px; }
+.qv-deal-select { flex: 0 0 18px !important; width: 18px; margin-right: 8px; }
+.qv-card-creator > .qv-inline-option { display: flex; align-items: center; font-weight: normal; }
 .qv-card-creator { display: grid; gap: 10px; max-height: 75vh; overflow-y: auto; padding-right: 4px; }
 .qv-card-creator > label { display: grid; gap: 5px; font-weight: bold; }
 .qv-card-creator textarea { width: 100%; resize: vertical; min-height: 60px; }

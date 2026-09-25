@@ -249,14 +249,16 @@ function questCardData(input) {
   const backText = read("backText", 10000);
   const paragraphs = value => value.split(/\r?\n\s*\r?\n/).filter(Boolean)
     .map(part => `<p>${escapeHTML(part).replace(/\r?\n/g, "<br>")}</p>`).join("");
+  const showHeadings = input.showHeadings === true || input.showHeadings === "on";
+  const objectiveChecks = Object.fromEntries(objectives.map((line, i) => [`o${i}`, /^\[x\]\s*/i.test(line)]));
   const text = paragraphs(description)
-    + (objectives.length ? `<h3>Objectives</h3><ul>${objectives.map(line => `<li>${escapeHTML(line)}</li>`).join("")}</ul>` : "")
-    + (rewards ? `<h3>Rewards</h3>${paragraphs(rewards)}` : "");
+    + (objectives.length ? `${showHeadings ? '<h3>Objectives</h3>' : ''}<ul class="qv-objectives">${objectives.map((line, i) => `<li data-qv-objective="o${i}">${escapeHTML(line.replace(/^\[[ x]\]\s*/i, ''))}</li>`).join("")}</ul>` : "")
+    + (rewards ? `${showHeadings ? '<h3>Rewards</h3>' : ''}${paragraphs(rewards)}` : "");
   return {
     name, description: text, face: 0,
     faces: [{ name, text: text || "<p>No quest details have been added yet.</p>", img: QUEST_ICON }],
     back: { name: "Quest", text: paragraphs(backText), img: QUEST_ICON },
-    flags: { [MODULE_ID]: { status: "active" } }
+    flags: { [MODULE_ID]: { status: "active", objectiveChecks, font: validFont(input.font), fontSize: validFontSize(input.fontSize) } }
   };
 }
 
@@ -355,6 +357,14 @@ Hooks.once("ready", async () => {
     .filter(Boolean);
 
   console.log(`${MODULE_ID} | Ready. Watching decks:`, selectedNames);
+  if (isSyncGM()) {
+    for (const id of getSelectedDeckIds()) {
+      const deck = game.cards.get(id);
+      if (deck?.type === 'deck' && !isConditionsDeck(deck)) {
+        for (const card of deck.cards.values()) await queueQuestSync(card);
+      }
+    }
+  }
 });
 
 function getSelectedDeckIds() {
@@ -506,8 +516,141 @@ async function postQuestToChat(card) {
 
 const QUEST_STATUSES = { active: "Active", completed: "Completed", failed: "Failed" };
 
+const QUEST_FONTS = { serif: "Classic serif", sans: "Clear sans-serif", mono: "Monospace" };
+const QUEST_SIZES = { small: "Small", normal: "Normal", large: "Large" };
+function validFont(value) { return Object.hasOwn(QUEST_FONTS, value) ? value : "serif"; }
+function validFontSize(value) { return Object.hasOwn(QUEST_SIZES, value) ? value : "normal"; }
+function questFlag(card, key) { return card.getFlag?.(MODULE_ID, key) ?? card.flags?.[MODULE_ID]?.[key]; }
+function canEditQuestProgress(card) {
+  return !isConditionCard(card) && (game.user.isGM || (card.parent?.type === "hand"
+    && card.parent.testUserPermission?.(game.user, "OWNER")));
+}
+async function assertQuestProgressAccess(card) {
+  if (!canEditQuestProgress(card) || card.parent?.cards.get(card.id) !== card
+    || !(await isConfiguredQuestCard(card)) || !canEditQuestProgress(card)) {
+    throw new Error("You no longer have permission to edit this quest card.");
+  }
+}
+function objectiveTemplate(card) {
+  const template = document.createElement('template');
+  template.innerHTML = getFaceText(card);
+  // Recognize cards made by older versions without rewriting their stored text.
+  for (const heading of template.content.querySelectorAll('h3')) {
+    if (heading.textContent.trim().toLowerCase() === 'objectives' && heading.nextElementSibling?.matches('ul')) {
+      heading.nextElementSibling.classList.add('qv-objectives');
+    }
+  }
+  const seen = new Set();
+  for (const [index, li] of Array.from(template.content.querySelectorAll('.qv-objectives > li')).entries()) {
+    let key = li.dataset.qvObjective;
+    if (!key || !/^[a-zA-Z0-9_-]{1,64}$/.test(key) || ['__proto__', 'constructor', 'prototype'].includes(key) || seen.has(key)) {
+      // Text-derived IDs keep legacy progress stable when rows are reordered.
+      let hash = 2166136261;
+      for (const c of li.textContent) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+      key = `legacy${hash >>> 0}`;
+      if (seen.has(key)) key += `_${index}`;
+    }
+    seen.add(key); li.dataset.qvObjective = key;
+  }
+  if (questFlag(card, 'hideHeadings') === true) {
+    for (const h of template.content.querySelectorAll('h3')) {
+      if (/^(objectives|rewards)$/i.test(h.textContent.trim())) h.remove();
+    }
+  }
+  return template;
+}
+function questObjectiveHTML(card) {
+  const template = objectiveTemplate(card);
+  const checked = questFlag(card, 'objectiveChecks') || {};
+  for (const li of template.content.querySelectorAll('.qv-objectives > li')) {
+    const key = li.dataset.qvObjective;
+    const content = li.innerHTML;
+    li.innerHTML = `<label><input type="checkbox" data-qv-check="${key}" ${checked[key] === true ? 'checked' : ''} ${canEditQuestProgress(card) ? '' : 'disabled'}><span>${content}</span></label>`;
+  }
+  return template.innerHTML;
+}
+async function setQuestObjective(card, key, checked) {
+  await assertQuestProgressAccess(card);
+  const keys = Array.from(objectiveTemplate(card).content.querySelectorAll('[data-qv-objective]'), li => li.dataset.qvObjective);
+  if (!keys.includes(key) || typeof checked !== 'boolean') throw new Error("This objective is no longer available.");
+  await card.update({ [`flags.${MODULE_ID}.objectiveChecks.${key}`]: checked });
+}
+async function setQuestNotes(card, notes) {
+  await assertQuestProgressAccess(card);
+  if (typeof notes !== 'string' || notes.length > 10000) throw new Error("Notes must be at most 10,000 characters.");
+  await card.setFlag(MODULE_ID, 'notes', notes);
+}
+async function editQuestAppearance(card) {
+  if (!game.user.isGM || isConditionCard(card)) return;
+  const options = (values, selected) => Object.entries(values).map(([key, label]) => `<option value="${key}" ${key === selected ? 'selected' : ''}>${label}</option>`).join('');
+  const data = await foundry.applications.api.DialogV2.wait({
+    window: { title: 'Font & Headings' },
+    content: `<label>Font<select name="font">${options(QUEST_FONTS, validFont(questFlag(card, 'font')))}</select></label>
+      <label>Text size<select name="fontSize">${options(QUEST_SIZES, validFontSize(questFlag(card, 'fontSize')))}</select></label>
+      <label><input type="checkbox" name="hideHeadings" ${questFlag(card, 'hideHeadings') === true ? 'checked' : ''}> Hide Objectives / Rewards headings</label>`,
+    buttons: [{ action: 'save', label: 'Save', callback: (_e, _b, dialog) => ({
+      font: dialog.element.querySelector('[name="font"]').value,
+      fontSize: dialog.element.querySelector('[name="fontSize"]').value,
+      hideHeadings: dialog.element.querySelector('[name="hideHeadings"]').checked
+    }) }, { action: 'cancel', label: 'Cancel', default: true }], rejectClose: false
+  });
+  if (!data || typeof data !== 'object') return;
+  try {
+    if (!game.user.isGM || card.parent?.cards.get(card.id) !== card) throw new Error('This card is no longer available.');
+    await card.update({ [`flags.${MODULE_ID}.font`]: validFont(data.font), [`flags.${MODULE_ID}.fontSize`]: validFontSize(data.fontSize), [`flags.${MODULE_ID}.hideHeadings`]: data.hideHeadings === true });
+  } catch (err) { ui.notifications.error(err.message); }
+}
+
+function questOriginId(card) {
+  const origin = card.source ?? card.origin ?? card._source?.origin;
+  if (origin && typeof origin === 'object') return origin.id;
+  return typeof origin === 'string' ? (/^Cards\.([^.]+)/.exec(origin)?.[1] || origin) : null;
+}
+function isContentChange(changes) {
+  return ['name', 'description', 'faces', 'back'].some(key => Object.hasOwn(changes, key))
+    || Object.keys(changes).some(key => /^(faces|back)\./.test(key))
+    || ['font', 'fontSize', 'hideHeadings'].some(key => [key, `-=${key}`].some(field => Object.hasOwn(changes, `flags.${MODULE_ID}.${field}`)
+      || Object.hasOwn(changes.flags?.[MODULE_ID] || {}, field)));
+}
+function isSyncGM() {
+  if (!game.user.isGM) return false;
+  const activeGM = game.users?.activeGM || Array.from(game.users?.values?.() || []).find(user => user.isGM && user.active);
+  return activeGM?.id === game.user.id;
+}
+async function syncQuestCopies(source) {
+  if (!isSyncGM() || source.parent?.type !== 'deck' || isConditionCard(source)
+    || !getSelectedDeckIds().includes(source.parent.id) || source.parent.cards.get(source.id) !== source) return;
+  const data = source.toObject();
+  for (const hand of game.cards.values()) {
+    if (hand.type !== 'hand') continue;
+    const copy = hand.cards.get(source.id);
+    if (!copy || isConditionCard(copy) || questOriginId(copy) !== source.parent.id) continue;
+    const current = copy.toObject();
+    const update = { _id: copy.id };
+    for (const key of ['name', 'description', 'faces', 'back']) {
+      if (JSON.stringify(current[key]) !== JSON.stringify(data[key])) update[key] = data[key];
+    }
+    for (const [key, value] of Object.entries({ font: validFont(questFlag(source, 'font')), fontSize: validFontSize(questFlag(source, 'fontSize')), hideHeadings: questFlag(source, 'hideHeadings') === true })) {
+      if (questFlag(copy, key) !== value) update[`flags.${MODULE_ID}.${key}`] = value;
+    }
+    if (Number.isInteger(copy.face) && copy.face >= data.faces.length) update.face = 0;
+    // Never copy status, objectiveChecks, notes, ownership, sort, origin or drawn.
+    if (Object.keys(update).length > 1) await hand.updateEmbeddedDocuments('Card', [update]);
+  }
+}
+const questSyncQueues = new Map();
+function queueQuestSync(source) {
+  if (!isSyncGM() || source.parent?.type !== 'deck') return Promise.resolve();
+  const key = `${source.parent.id}.${source.id}`;
+  const task = (questSyncQueues.get(key) || Promise.resolve()).then(() => syncQuestCopies(source))
+    .catch(err => { console.error(`${MODULE_ID} | Quest content sync failed`, err); ui.notifications.warn('A quest copy could not be updated. Check Hand permissions and try editing the source again.'); });
+  questSyncQueues.set(key, task);
+  task.finally(() => { if (questSyncQueues.get(key) === task) questSyncQueues.delete(key); });
+  return task;
+}
+
 function getQuestStatus(card) {
-  const status = card.getFlag?.(MODULE_ID, "status");
+  const status = questFlag(card, "status");
   return Object.hasOwn(QUEST_STATUSES, status) ? status : "active";
 }
 
@@ -517,12 +660,12 @@ function statusBadgeHTML(card) {
 }
 
 async function setQuestStatus(card, status) {
-  if (!game.user.isGM) throw new Error("Only the GM can change quest status using Adventurer’s Cards.");
+  if (!canEditQuestProgress(card)) throw new Error("You must own this Hand to change quest progress.");
   if (!Object.hasOwn(QUEST_STATUSES, status)) throw new Error("Invalid quest status.");
   if (card.parent?.cards.get(card.id) !== card || !(await isConfiguredQuestCard(card))) {
     throw new Error("This quest card is no longer available.");
   }
-  if (!game.user.isGM || card.parent.cards.get(card.id) !== card) throw new Error("This quest card is no longer available.");
+  if (!canEditQuestProgress(card) || card.parent.cards.get(card.id) !== card) throw new Error("This quest card is no longer available.");
   await card.setFlag(MODULE_ID, "status", status);
 }
 
@@ -530,10 +673,11 @@ const questViewers = new Map();
 function sameQuestCard(a, b) {
   return a === b || (a.uuid && a.uuid === b.uuid);
 }
-Hooks.on("updateCard", card => {
+Hooks.on("updateCard", (card, changes = {}) => {
   for (const entry of questViewers.values()) {
     if (sameQuestCard(entry.card, card)) entry.refresh();
   }
+  if (isContentChange(changes)) queueQuestSync(card);
 });
 Hooks.on("deleteCard", card => {
   for (const [viewer, entry] of questViewers) {
@@ -554,12 +698,12 @@ function buildCardHTML(card, showingFront) {
         <section class="qv-card-body">${getFaceText(card)}</section>
       </article>
     </div>`;
-  const text = showingFront ? getFaceText(card) : getBackText(card);
+  const text = showingFront ? questObjectiveHTML(card) : getBackText(card);
   const title = showingFront ? card.name : (card.back?.name || "Quest");
 
   return `
     <div class="qv-viewer-wrapper">
-      <article class="qv-card${showingFront ? "" : " qv-card--back"}${!showingFront && !card.back?.text ? " qv-card--sealed" : ""}" data-qv-flip role="button" tabindex="0"
+      <article class="qv-card qv-font-${validFont(questFlag(card, 'font'))} qv-size-${validFontSize(questFlag(card, 'fontSize'))}${showingFront ? "" : " qv-card--back"}${!showingFront && !card.back?.text ? " qv-card--sealed" : ""}" data-qv-flip role="button" tabindex="0"
                aria-label="Flip ${escapeHTML(card.name)}">
         <header class="qv-card-title">${escapeHTML(title)}</header>
         <div class="qv-status-display" aria-live="polite">${statusBadgeHTML(card)}</div>
@@ -570,10 +714,14 @@ function buildCardHTML(card, showingFront) {
           Click to flip
         </div>
       </article>
-      ${game.user.isGM ? `<label class="qv-status-control">Quest status
+      ${canEditQuestProgress(card) ? `<label class="qv-status-control">Quest status
         <select aria-label="Quest status" data-qv-status>
           ${Object.entries(QUEST_STATUSES).map(([value, label]) => `<option value="${value}"${value === getQuestStatus(card) ? " selected" : ""}>${label}</option>`).join("")}
-        </select></label>` : ""}
+        </select></label><label class="qv-notes-control">Notes on this card copy
+          <textarea data-qv-notes maxlength="10000" rows="3">${escapeHTML(questFlag(card, 'notes') || '')}</textarea>
+          <button type="button" data-qv-save-notes>Save Notes</button>
+          <small>Visible to the GM and other owners of this Hand.</small>
+        </label>` : ""}
     </div>
   `;
 }
@@ -581,6 +729,7 @@ function buildCardHTML(card, showingFront) {
 async function showQuestCard(card) {
   const DialogV2 = foundry.applications.api.DialogV2;
   let showingFront = true;
+  let notesDraft = null;
 
   const viewer = new DialogV2({
     window: {
@@ -594,7 +743,7 @@ async function showQuestCard(card) {
       label: "Show Card to Players",
       icon: "fa-solid fa-eye",
       callback: () => chooseCardRecipients(card, showingFront)
-    }] : []), {
+    }, ...(!isConditionCard(card) ? [{ action: "appearance", label: "Font & Headings", icon: "fa-solid fa-font", callback: () => editQuestAppearance(card) }] : [])] : []), {
       action: "close",
       label: "Close",
       icon: "fa-solid fa-xmark",
@@ -609,6 +758,28 @@ async function showQuestCard(card) {
       const currentWrapper = dialog.element.querySelector(".qv-viewer-wrapper");
       if (currentWrapper) currentWrapper.outerHTML = buildCardHTML(card, showingFront);
       const attachFlip = () => {
+        const notes = dialog.element.querySelector('[data-qv-notes]');
+        if (notes && notesDraft !== null) notes.value = notesDraft;
+        notes?.addEventListener('input', () => { notesDraft = notes.value; });
+        dialog.element.querySelector('[data-qv-save-notes]')?.addEventListener('click', async event => {
+          event.preventDefault(); event.stopPropagation();
+          const value = notes.value;
+          event.currentTarget.disabled = true;
+          try { await setQuestNotes(card, value); if (notesDraft === value) notesDraft = null; }
+          catch (err) { ui.notifications.error(err.message); }
+          finally { dialog.element.querySelector('[data-qv-save-notes]')?.removeAttribute('disabled'); }
+        });
+        for (const input of dialog.element.querySelectorAll('[data-qv-check]')) {
+          input.addEventListener('click', event => event.stopPropagation());
+          input.addEventListener('keydown', event => event.stopPropagation());
+          input.closest('label')?.addEventListener('click', event => event.stopPropagation());
+          input.addEventListener('change', async () => {
+            input.disabled = true;
+            try { await setQuestObjective(card, input.dataset.qvCheck, input.checked); }
+            catch (err) { input.checked = !input.checked; ui.notifications.error(err.message); }
+            finally { input.disabled = !canEditQuestProgress(card); }
+          });
+        }
         const statusSelect = dialog.element.querySelector("[data-qv-status]");
         statusSelect?.addEventListener("change", async () => {
           statusSelect.disabled = true;
@@ -691,6 +862,68 @@ function canManuallyViewHand(hand) {
 }
 
 // An older asynchronous render must not add controls after a newer render.
+const dealSelections = new WeakMap();
+const dealingDecks = new Set();
+async function dealSelectedQuests(deck, handId, ids) {
+  if (!game.user.isGM || deck?.type !== 'deck' || game.cards.get(deck.id) !== deck
+    || isConditionsDeck(deck) || !getSelectedDeckIds().includes(deck.id)) throw new Error('Only the GM can deal from a configured quest deck.');
+  const hand = game.cards.get(handId);
+  if (!hand || hand.type !== 'hand') throw new Error('Choose a destination Hand.');
+  const chosen = [...new Set(ids)];
+  if (!chosen.length || chosen.some(id => {
+    const card = deck.cards.get(id);
+    return !card || card.drawn || isConditionCard(card) || hand.cards.has(id);
+  })) throw new Error('Some selected cards are unavailable or already dealt. Refresh the deck and select again.');
+  if (dealingDecks.has(deck.id)) throw new Error('This deck is already dealing cards.');
+  dealingDecks.add(deck.id);
+  try { return await deck.pass(hand, chosen, { chatNotification: false }); }
+  finally { dealingDecks.delete(deck.id); }
+}
+function addSelectiveDealControls(app, root, deck) {
+  root.querySelectorAll('.qv-deal-select, .qv-deal-toolbar').forEach(node => node.remove());
+  if (!game.user.isGM || deck.type !== 'deck' || isConditionsDeck(deck) || !getSelectedDeckIds().includes(deck.id)) return;
+  let selection = dealSelections.get(app);
+  if (!selection) { selection = new Set(); dealSelections.set(app, selection); }
+  const eligible = id => { const card = deck.cards.get(id); return card && !card.drawn && !isConditionCard(card); };
+  for (const id of selection) if (!eligible(id)) selection.delete(id);
+  const toolbar = root.ownerDocument.createElement('div'); toolbar.className = 'qv-deal-toolbar';
+  const deal = root.ownerDocument.createElement('button'); deal.type = 'button';
+  const update = () => { deal.textContent = `Deal Selected (${selection.size})`; deal.disabled = !selection.size; };
+  toolbar.append(deal); update();
+  for (const row of root.querySelectorAll('li[data-card-id]')) {
+    const id = row.dataset.cardId;
+    if (!eligible(id)) continue;
+    const input = root.ownerDocument.createElement('input'); input.type = 'checkbox'; input.className = 'qv-deal-select';
+    input.checked = selection.has(id); input.setAttribute('aria-label', `Select ${deck.cards.get(id).name} to deal`);
+    input.addEventListener('click', event => event.stopPropagation());
+    input.addEventListener('change', event => { event.stopPropagation(); if (input.checked) selection.add(id); else selection.delete(id); update(); });
+    row.prepend(input);
+  }
+  const header = root.querySelector('.cards-header');
+  if (header) header.after(toolbar); else root.prepend(toolbar);
+  deal.addEventListener('click', async event => {
+    event.preventDefault(); event.stopPropagation();
+    if (!game.user.isGM || !selection.size || deal.disabled) return;
+    const ids = [...selection]; deal.disabled = true;
+    try {
+      const hands = Array.from(game.cards.values()).filter(hand => hand.type === 'hand');
+      if (!hands.length) throw new Error('Create a Hand before dealing cards.');
+      const handId = await foundry.applications.api.DialogV2.wait({
+        window: { title: 'Deal Selected Quest Cards' },
+        content: `<p>Deal these ${ids.length} selected cards to:</p><select name="hand">${hands.map(hand => `<option value="${escapeHTML(hand.id)}">${escapeHTML(hand.name)}</option>`).join('')}</select>`,
+        buttons: [{ action: 'deal', label: 'Deal Cards', callback: (_e, _b, dialog) => dialog.element.querySelector('[name="hand"]').value }, { action: 'cancel', label: 'Cancel', default: true }], rejectClose: false
+      });
+      if (!hands.some(hand => hand.id === handId)) return;
+      const created = await dealSelectedQuests(deck, handId, ids);
+      if (created.length !== ids.length) throw new Error('Not all selected cards were dealt. Check the Hand before retrying.');
+      for (const id of ids) selection.delete(id);
+      ui.notifications.info(`Dealt ${created.length} quest card(s).`);
+      app.render({ force: true });
+    } catch (err) { ui.notifications.error(err.message); }
+    finally { update(); }
+  });
+}
+
 const handRenderTokens = new WeakMap();
 
 async function addViewCardButtons(app, html) {
@@ -698,6 +931,7 @@ async function addViewCardButtons(app, html) {
   if (hand?.documentName !== "Cards" || !["hand", "deck"].includes(hand.type)) return;
   const root = html?.querySelectorAll ? html : html?.[0];
   if (!root) return;
+  addSelectiveDealControls(app, root, hand);
   const token = {};
   handRenderTokens.set(app, token);
   root.querySelectorAll(".qv-view-card, .qv-hand-status").forEach(button => button.remove());
@@ -763,7 +997,8 @@ Hooks.on("renderCardDeckConfig", addViewCardButtons);
 function sharedCardContent(card, showingFront) {
   const template = document.createElement("template");
   template.innerHTML = buildCardHTML(card, showingFront);
-  template.content.querySelectorAll(".qv-status-control, .qv-card-hint").forEach(node => node.remove());
+  template.content.querySelectorAll(".qv-status-control, .qv-notes-control, .qv-card-hint").forEach(node => node.remove());
+  template.content.querySelectorAll('[data-qv-check]').forEach(input => { input.disabled = true; input.removeAttribute('data-qv-check'); });
   const article = template.content.querySelector(".qv-card");
   for (const attribute of ["data-qv-flip", "role", "tabindex", "aria-label"]) article.removeAttribute(attribute);
   return `<div class="qv-shared-card">${template.innerHTML}</div>`;
@@ -786,7 +1021,10 @@ async function shareCardToPlayers(card, showingFront, recipientIds) {
     whisper: recipients,
     blind: false,
     content: sharedCardContent(card, showingFront),
-    flags: { [MODULE_ID]: { sharedCard: true } }
+    flags: { [MODULE_ID]: { sharedCard: true, sharedSource: {
+      cardId: card.id, deckId: card.parent?.type === 'deck' ? card.parent.id : questOriginId(card),
+      handId: card.parent?.type === 'hand' ? card.parent.id : null
+    } } }
   });
 }
 
@@ -822,6 +1060,25 @@ async function chooseCardRecipients(card, showingFront) {
 }
 
 const shownSharedMessages = new Set();
+function sharedContentForPlayer(message) {
+  const source = message.getFlag(MODULE_ID, 'sharedSource');
+  if (!source || typeof source !== 'object') return message.content;
+  const matches = Array.from(game.cards.values()).filter(hand => hand.type === 'hand'
+    && hand.testUserPermission?.(game.user, 'OWNER'))
+    .map(hand => hand.cards.get(source.cardId)).filter(card => card && !isConditionCard(card)
+      && (source.handId ? card.parent.id === source.handId : questOriginId(card) === source.deckId));
+  if (matches.length !== 1) return message.content;
+  const card = matches[0];
+  const template = document.createElement('template'); template.innerHTML = message.content;
+  const badge = template.content.querySelector('.qv-status-badge');
+  if (badge) badge.outerHTML = statusBadgeHTML(card);
+  const checked = questFlag(card, 'objectiveChecks') || {};
+  for (const li of template.content.querySelectorAll('[data-qv-objective]')) {
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    if (checkbox) checkbox.toggleAttribute('checked', checked[li.dataset.qvObjective] === true);
+  }
+  return template.innerHTML;
+}
 Hooks.on("createChatMessage", message => {
   if (!message.author?.isGM || !message.getFlag(MODULE_ID, "sharedCard")
     || game.user.isGM || !message.whisper?.includes(game.user.id)
@@ -830,10 +1087,20 @@ Hooks.on("createChatMessage", message => {
   if (shownSharedMessages.size > 100) shownSharedMessages.delete(shownSharedMessages.values().next().value);
   new foundry.applications.api.DialogV2({
     window: { title: "Card shared by the GM", resizable: true },
-    content: message.content,
+    content: sharedContentForPlayer(message),
     buttons: [{ action: "close", label: "Close", icon: "fa-solid fa-xmark" }]
   }).render({ force: true });
 });
+
+function renderSharedQuestMessage(message, html) {
+  if (!message.author?.isGM || !message.getFlag(MODULE_ID, 'sharedCard')
+    || !message.isContentVisible || game.user.isGM) return;
+  const root = html?.querySelector ? html : html?.[0];
+  const content = root?.querySelector('.qv-shared-card');
+  if (content) content.outerHTML = sharedContentForPlayer(message);
+}
+Hooks.on('renderChatMessageHTML', renderSharedQuestMessage);
+Hooks.on('renderChatMessage', renderSharedQuestMessage);
 
 // Adapted from SRD 5.2.1 (CC BY 4.0). See RULES-LICENSE.md.
 const CONDITION_ATTRIBUTION = `This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at <a href="https://www.dndbeyond.com/srd" target="_blank" rel="noopener noreferrer">https://www.dndbeyond.com/srd</a>. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noopener noreferrer">https://creativecommons.org/licenses/by/4.0/legalcode</a>.`;
