@@ -154,6 +154,7 @@ class QuestViewerDeckSelector extends HandlebarsApplicationMixin(ApplicationV2) 
       JSON.stringify(checked)
     );
 
+    await game.settings.set(MODULE_ID, LEGACY_DECK_NAMES_KEY, "");
     ui.notifications.info(
       `Adventurer’s Cards: ${checked.length} deck${checked.length === 1 ? "" : "s"} selected.`
     );
@@ -173,7 +174,16 @@ class QuestCardCreator extends HandlebarsApplicationMixin(ApplicationV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     const host = this.element.querySelector('[data-qv-reward-editor]');
-    if (host && !host.dataset.ready) bindRewardEditor(host, []);
+    this.creatorDraft ??= {};
+    if (host && !host.dataset.ready) bindRewardEditor(host, this.creatorDraftRewards || [], rows => { this.creatorDraftRewards = rows; });
+    for (const input of this.element.querySelectorAll('[name]:not([name="rewardData"])')) {
+      if (Object.hasOwn(this.creatorDraft, input.name)) {
+        if (input.type === 'checkbox') input.checked = this.creatorDraft[input.name];
+        else input.value = this.creatorDraft[input.name];
+      }
+      const capture = () => { this.creatorDraft[input.name] = input.type === 'checkbox' ? input.checked : input.value; };
+      input.addEventListener('input', capture); input.addEventListener('change', capture);
+    }
   }
 
   async _prepareContext(options) {
@@ -260,13 +270,12 @@ function questCardData(input) {
   const objectiveChecks = Object.fromEntries(objectives.map((line, i) => [`o${i}`, /^\[x\]\s*/i.test(line)]));
   const text = paragraphs(description)
     + (objectives.length ? `${showHeadings ? '<h3>Objectives</h3>' : ''}<ul class="qv-objectives">${objectives.map((line, i) => `<li data-qv-objective="o${i}">${escapeHTML(line.replace(/^\[[ x]\]\s*/i, ''))}</li>`).join("")}</ul>` : "")
-    + (rewards ? `${showHeadings ? '<h3>Rewards</h3>' : ''}${paragraphs(rewards)}` : "")
-    + rewardListHTML(rewardEntries);
+    + ((rewards || rewardEntries.length) ? `${showHeadings ? '<h3>Rewards</h3>' : ''}${paragraphs(rewards)}${rewardListHTML(rewardEntries)}` : "");
   return {
     name, description: text, face: 0,
     faces: [{ name, text: text || "<p>No quest details have been added yet.</p>", img: QUEST_ICON }],
     back: { name: "Quest", text: paragraphs(backText), img: QUEST_ICON },
-    flags: { [MODULE_ID]: { status: "active", objectiveChecks, rewardEntries, font: validFont(input.font), fontSize: validFontSize(input.fontSize) } }
+    flags: { [MODULE_ID]: { status: "active", objectiveChecks, rewardEntries, showRewardHeading: showHeadings, font: validFont(input.font), fontSize: validFontSize(input.fontSize) } }
   };
 }
 
@@ -390,7 +399,10 @@ function getSelectedDeckIds() {
 
 async function migrateLegacyDeckNames() {
   if (!game.user.isGM) return;
-  if (getSelectedDeckIds().length) return;
+  if (getSelectedDeckIds().length) {
+    await game.settings.set(MODULE_ID, LEGACY_DECK_NAMES_KEY, "");
+    return;
+  }
 
   const legacy = String(
     game.settings.get(MODULE_ID, LEGACY_DECK_NAMES_KEY) ?? ""
@@ -415,6 +427,7 @@ async function migrateLegacyDeckNames() {
     JSON.stringify(ids)
   );
 
+  await game.settings.set(MODULE_ID, LEGACY_DECK_NAMES_KEY, "");
   console.log(`${MODULE_ID} | Migrated legacy deck selection`, ids);
 }
 
@@ -596,16 +609,26 @@ async function openQuestNotes(card) {
     const key = card.uuid || `${card.parent.id}.${card.id}`;
     const existing = questNotesEditors.get(key);
     if (existing) { existing.bringToFront?.(); return existing; }
+    let baseNotes = questFlag(card, 'notes') || '';
     const editor = new foundry.applications.api.DialogV2({
       window: { title: `Notes — ${card.name}`, resizable: true },
       position: { width: 480 },
       form: { closeOnSubmit: false },
       content: `<label class="qv-notes-editor">Notes on this card copy
         <textarea data-qv-notes maxlength="10000" rows="10">${escapeHTML(questFlag(card, 'notes') || '')}</textarea>
-        </label><p>Visible to the GM and other owners of this Hand. Save &amp; Close keeps your changes; Cancel or the window X discards them.</p>`,
+        </label><div data-qv-notes-conflict hidden></div><p>Visible to the GM and other owners of this Hand. Save &amp; Close keeps your changes; Cancel or the window X discards them.</p>`,
       buttons: [
         { action: 'save', label: 'Save & Close', icon: 'fa-solid fa-floppy-disk', callback: async (_event, _button, dialog) => {
           try {
+            await assertQuestProgressAccess(card);
+            const latest = questFlag(card, 'notes') || '';
+            if (latest !== baseNotes) {
+              const panel = dialog.element.querySelector('[data-qv-notes-conflict]');
+              panel.hidden = false;
+              panel.innerHTML = `<p><strong>Notes changed since you opened this editor.</strong> Your draft is kept above. Compare the latest saved text below, merge any changes into your draft, then press Save &amp; Close again.</p><pre style="white-space:pre-wrap">${escapeHTML(latest)}</pre>`;
+              baseNotes = latest;
+              return;
+            }
             await setQuestNotes(card, dialog.element.querySelector('[data-qv-notes]').value);
             await dialog.close();
           } catch (err) { ui.notifications.error(err.message); }
@@ -710,14 +733,14 @@ function rewardLabel(row) {
 function rewardListHTML(rows) {
   return rows.length ? `<section class="qv-grant-rewards"><ul>${rows.map(row => `<li>${escapeHTML(rewardLabel(row))}${row.kind === 'custom' && row.description ? `<br><small>${escapeHTML(row.description).replace(/\n/g, '<br>')}</small>` : ''}</li>`).join('')}</ul></section>` : '';
 }
-function bindRewardEditor(host, initial) {
+function bindRewardEditor(host, initial, onChange = () => {}) {
   let rows = structuredClone(initial);
   host.dataset.ready = 'true';
   host.innerHTML = `<p>Currency is a total to split. Items go to one chosen character. Custom boons become descriptive features without automatic effects.</p>
     <div class="qv-reward-rows"></div><input type="hidden" name="rewardData">
     <div class="qv-reward-add"><button type="button" data-add="currency">Add Currency</button><button type="button" data-add="custom">Add Boon / Other</button></div>
     <div class="qv-reward-drop" tabindex="0">Drop an Item from the Items sidebar or a compendium here</div>`;
-  const save = () => { host.querySelector('[name="rewardData"]').value = JSON.stringify(rows); };
+  const save = () => { host.querySelector('[name="rewardData"]').value = JSON.stringify(rows); onChange(structuredClone(rows)); };
   const paint = () => {
     host.querySelector('.qv-reward-rows').innerHTML = rows.map(row => `<fieldset data-reward-id="${row.id}"><legend>${row.kind === 'currency' ? 'Currency' : row.kind === 'item' ? 'Item' : 'Boon / Other'}</legend>
       ${row.kind === 'currency' ? `<label>Amount<input type="number" data-field="amount" min="1" max="1000000" step="1" value="${row.amount}" required></label><label>Coin<select data-field="coin">${REWARD_COINS.map(c => `<option${row.coin === c ? ' selected' : ''}>${c}</option>`).join('')}</select></label>`
@@ -914,11 +937,13 @@ async function saveQuestRewards(card, rows) {
     if (rewardHistory(source).length) throw Error('Rewards with distribution history cannot be changed. Create a new quest for a new reward package.');
     const template = document.createElement('template'); template.innerHTML = source.faces?.[0]?.text || '';
     template.content.querySelectorAll('.qv-grant-rewards').forEach(node => node.remove());
-    const front = template.innerHTML + rewardListHTML(normalized);
+    const front = template.innerHTML + (normalized.length && questFlag(source, 'showRewardHeading') === true && !Array.from(template.content.querySelectorAll('h3')).some(h => h.textContent.trim() === 'Rewards') ? '<h3>Rewards</h3>' : '') + rewardListHTML(normalized);
     const faces = source.toObject().faces;
     if (!faces?.length) throw Error('This card needs a front face before rewards can be added.');
     faces[0].text = front;
-    await source.update({ faces, [`flags.${MODULE_ID}.rewardEntries`]: normalized });
+    const update = { faces, [`flags.${MODULE_ID}.rewardEntries`]: normalized };
+    if (source.description === source.faces[0].text) update.description = front;
+    await source.update(update);
     return { source, previous: current };
   });
 }
@@ -1136,9 +1161,13 @@ async function showQuestCard(card) {
           if (restoreFocus) dialog.element.querySelector("[data-qv-flip]")?.focus();
         };
 
-        element.addEventListener("click", () => flip());
+        const interactive = event => event.target.closest('a, button, input, select, textarea, label, summary, [contenteditable="true"], [role="button"]:not([data-qv-flip])');
+        element.addEventListener("click", event => {
+          if (interactive(event) || !window.getSelection()?.isCollapsed) return;
+          flip();
+        });
         element.addEventListener("keydown", event => {
-          if (event.key === "Enter" || event.key === " ") {
+          if (!interactive(event) && (event.key === "Enter" || event.key === " ")) {
             event.preventDefault();
             flip(true);
           }
@@ -1175,6 +1204,9 @@ Hooks.on("createCard", async (card, options, userId) => {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
+    if (card.parent?.cards.get(card.id) !== card || !canCurrentUserViewHand(card.parent)
+      || !(await isConfiguredQuestCard(card)) || card.parent?.cards.get(card.id) !== card
+      || !canCurrentUserViewHand(card.parent)) return;
     await showQuestCard(card);
   } catch (err) {
     console.error(`${MODULE_ID} | Adventurer’s Cards error`, err);

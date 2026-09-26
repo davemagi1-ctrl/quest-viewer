@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.1
+
+- Detect changed shared notes before saving; preserve the local draft and display the latest text for comparison and merging.
+- Recheck card availability, Hand ownership and deck configuration after automatic popup delays.
+- Consume legacy deck selections after migration or explicit selection saves, keeping cleared selections cleared.
+- Keep links, interactive content and text selection from triggering card flips.
+- Preserve creator field and reward drafts across rerenders.
+- Keep generated card descriptions consistent with reward changes while preserving independently authored descriptions.
+- Respect the optional Rewards heading for structured rewards, without duplicate headings.
+
 ## 1.13.0
 
 - Add structured currency, dragged-in Item, and custom boon rewards in Card Creator.
