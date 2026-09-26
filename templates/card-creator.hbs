@@ -8,7 +8,8 @@
   <label>Description <textarea name="description" rows="5" maxlength="10000" placeholder="What do the adventurers need to know?"></textarea></label>
   <label>Objectives <textarea name="objectives" rows="3" maxlength="5000" placeholder="Find the caravan&#10;Return the missing supplies"></textarea></label>
   <p class="notes">One objective per line. Players can tick or untick each objective on their Hand copy. Start a line with [x] to create it already checked, or [ ] for unchecked.</p>
-  <label>Rewards <textarea name="rewards" rows="2" maxlength="5000" placeholder="50 gp and the merchant's gratitude"></textarea></label>
+  <label>Reward description (optional) <textarea name="rewards" rows="2" maxlength="5000" placeholder="Additional reward details; this text is not automatically handed out"></textarea></label>
+  <details class="qv-reward-setup" open><summary>Rewards to hand out</summary><div data-qv-reward-editor></div></details>
   <label class="qv-inline-option"><input type="checkbox" name="showHeadings"> Show Objectives / Rewards headings</label>
   <label>Font <select name="font"><option value="serif">Classic serif</option><option value="sans">Clear sans-serif</option><option value="mono">Monospace</option></select></label>
   <label>Text size <select name="fontSize"><option value="small">Small</option><option value="normal" selected>Normal</option><option value="large">Large</option></select></label>

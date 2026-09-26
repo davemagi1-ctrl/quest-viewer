@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.0
+
+- Add structured currency, dragged-in Item, and custom boon rewards in Card Creator.
+- Add GM Give Rewards with character selection, exact split preview and final confirmation.
+- Add reward setup for existing quests while preserving original card text and player progress.
+- Share payout history across source quests and their Hand copies; block ordinary duplicate payouts.
+- Track interrupted awards and provide review plus retry of only confirmed missing allocations.
+- D&D Fifth Edition character sheets receive currency, inventory items, and descriptive custom features. No automatic payout on quest completion.
+- Keep appearance in Card Creator and notes in their separate editor.
+- Validate with 241 simulated browser checks; live multiplayer testing remains outstanding.
+
 ## 1.12.1
 
 - Keep font and heading options exclusively in Card Creator; remove the viewer appearance button.

@@ -398,3 +398,16 @@ button.qv-view-card {
   font-size: 12px;
   white-space: nowrap;
 }
+
+.qv-reward-setup { border: 1px solid var(--color-border-light-primary, #756544); border-radius: 5px; padding: 10px; }
+.qv-reward-setup summary { cursor: pointer; font-weight: bold; }
+.qv-reward-rows { display: grid; gap: 8px; }
+.qv-reward-rows fieldset, .qv-reward-distribution fieldset { display: grid; gap: 8px; margin: 8px 0; padding: 10px; min-width: 0; }
+.qv-reward-rows label { display: grid; gap: 4px; }
+.qv-reward-rows input, .qv-reward-rows select, .qv-reward-rows textarea { width: 100%; }
+.qv-reward-add { display: flex; gap: 8px; margin-top: 10px; }
+.qv-reward-drop { padding: 16px; margin: 10px 0; text-align: center; border: 2px dashed #a68c53; border-radius: 5px; }
+.qv-reward-recipient { display: flex; gap: 8px; align-items: center; }
+.qv-reward-receipt { border-top: 1px solid #756544; padding: 8px 0; overflow-wrap: anywhere; }
+.qv-grant-rewards { margin-top: 16px; }
+.qv-grant-rewards small { font-size: 0.85em; }

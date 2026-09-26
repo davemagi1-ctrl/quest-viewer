@@ -32,7 +32,7 @@ Existing installations can use Foundry's module updater.
 
 For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.12.1**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.13.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
 
 ## Create a quest card
 
@@ -96,6 +96,22 @@ Status, checked objectives and notes are never copied over from the deck during 
 
 For an existing quest, the GM can open **View Card → Font & Headings** to change font, size or hide existing Objectives/Rewards headings. Changing the source card's appearance propagates to Hand copies. Heading suppression does not remove the objectives or rewards.
 
+### Hand out rewards (D&D Fifth Edition)
+
+In **Card Creator → Rewards to hand out**, add currency, drag Items from the Items sidebar or a compendium, or add a custom boon/other reward. Currency amounts are totals for the party. Item quantities are given to one chosen character. Custom rewards become descriptive features on each selected character, without automatic mechanical effects. The optional reward description remains descriptive text and is not parsed or paid automatically.
+
+For existing quests, open **View Card → Give Rewards → Set Up Rewards**. This updates the original quest and matching Hand copies. A quest must belong to a configured source deck. Rewards can be edited until the first distribution attempt; after that the package is fixed to keep its history reliable.
+
+To distribute, the active GM opens **Give Rewards**, selects individual rewards and recipients, then chooses **Review Distribution**. The confirmation lists exactly who receives what. Currency is split in whole coins, with leftover coins going to the first selected characters in the displayed order. There is no automatic conversion between denominations. Click **Give Rewards** in the confirmation to apply the changes. Cancelling does nothing.
+
+Currency is added to character-sheet balances. Items are copied into character inventories as new entries, leaving the source item intact. Containers are copied empty; equipment is initially unequipped and unattuned. Features and spells without quantity fields must have quantity 1. Items with advancements, such as classes or advancement-based boons, must be added manually through the system's character sheet workflow.
+
+The GM's distribution history is shared by the original quest and all its Hand copies. It lists recipients, amounts, date, and GM. A normal second payout is blocked; **Award Again** explicitly enables another award and still requires review. Completing a quest, showing a card, dealing, or editing its text never distributes rewards. Player progress and notes are preserved.
+
+If a write is interrupted, the package is blocked until the GM chooses **Review Interrupted Award** and checks the actual character sheets. Mark each outstanding entry as received or not received. This review itself changes no items or money. **Review Missing Rewards** then offers only the original allocations confirmed as missing, with another confirmation before retrying. Do not use Award Again as a substitute for recovery. Do not operate payouts from multiple sessions logged in as the same active GM at once, or edit recipient currency while distribution is running.
+
+Reward definitions and receipts are not a hidden-reward feature. Character actors are supported; token-only actors and non-D&D systems are not supported for distribution. Other module features remain available. Existing text-only rewards require setup rather than automatic interpretation.
+
 ### Deal selected cards
 
 As GM, open a configured quest deck. Check the selection boxes beside the available cards, click **Deal Selected**, choose a destination Hand, then click **Deal Cards**. Already-drawn cards cannot be selected. The normal automatic popup and chat preferences still apply. This uses Foundry's card passing and does not duplicate the selected cards into multiple Hands.
@@ -138,7 +154,7 @@ Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each refer
 
 ## Testing and support
 
-Version 1.12.1 passed **185 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Syntax and ZIP structure were also checked.
+Version 1.13.0 passed **241 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Reward checks cover exact splits, inventory copies, custom features, GM permissions, duplicate prevention, stale confirmations, interruptions, recovery, and the editor/distribution controls. Syntax and ZIP structure were also checked.
 
 Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
 Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.

@@ -170,6 +170,12 @@ class QuestCardCreator extends HandlebarsApplicationMixin(ApplicationV2) {
   };
   static PARTS = { form: { template: "modules/quest-viewer/templates/card-creator.hbs" } };
 
+  _onRender(context, options) {
+    super._onRender(context, options);
+    const host = this.element.querySelector('[data-qv-reward-editor]');
+    if (host && !host.dataset.ready) bindRewardEditor(host, []);
+  }
+
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const selected = new Set(getSelectedDeckIds());
@@ -246,6 +252,7 @@ function questCardData(input) {
   const description = read("description", 10000);
   const objectives = read("objectives", 5000).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const rewards = read("rewards", 5000);
+  const rewardEntries = normalizeRewards(input.rewardData || []);
   const backText = read("backText", 10000);
   const paragraphs = value => value.split(/\r?\n\s*\r?\n/).filter(Boolean)
     .map(part => `<p>${escapeHTML(part).replace(/\r?\n/g, "<br>")}</p>`).join("");
@@ -253,12 +260,13 @@ function questCardData(input) {
   const objectiveChecks = Object.fromEntries(objectives.map((line, i) => [`o${i}`, /^\[x\]\s*/i.test(line)]));
   const text = paragraphs(description)
     + (objectives.length ? `${showHeadings ? '<h3>Objectives</h3>' : ''}<ul class="qv-objectives">${objectives.map((line, i) => `<li data-qv-objective="o${i}">${escapeHTML(line.replace(/^\[[ x]\]\s*/i, ''))}</li>`).join("")}</ul>` : "")
-    + (rewards ? `${showHeadings ? '<h3>Rewards</h3>' : ''}${paragraphs(rewards)}` : "");
+    + (rewards ? `${showHeadings ? '<h3>Rewards</h3>' : ''}${paragraphs(rewards)}` : "")
+    + rewardListHTML(rewardEntries);
   return {
     name, description: text, face: 0,
     faces: [{ name, text: text || "<p>No quest details have been added yet.</p>", img: QUEST_ICON }],
     back: { name: "Quest", text: paragraphs(backText), img: QUEST_ICON },
-    flags: { [MODULE_ID]: { status: "active", objectiveChecks, font: validFont(input.font), fontSize: validFontSize(input.fontSize) } }
+    flags: { [MODULE_ID]: { status: "active", objectiveChecks, rewardEntries, font: validFont(input.font), fontSize: validFontSize(input.fontSize) } }
   };
 }
 
@@ -275,6 +283,7 @@ async function createQuestCard(input) {
 }
 
 Hooks.once("init", () => {
+  game.settings.register(MODULE_ID, 'rewardLedger', { scope: 'world', config: false, type: Object, default: {} });
   game.settings.registerMenu(MODULE_ID, "cardCreator", {
     name: "Card Creator", label: "Create Quest Card", icon: "fa-solid fa-feather-pointed",
     hint: "Create a quest card with objectives, rewards, and the quest emblem.",
@@ -601,7 +610,7 @@ async function openQuestNotes(card) {
             await dialog.close();
           } catch (err) { ui.notifications.error(err.message); }
         } },
-        { action: 'cancel', label: 'Cancel', callback: (_event, _button, dialog) => dialog.close() }
+        { action: 'cancel', label: 'Cancel', type: 'button', callback: (_event, _button, dialog) => dialog.close() }
       ]
     });
     questNotesEditors.set(key, editor);
@@ -619,7 +628,7 @@ function questOriginId(card) {
 function isContentChange(changes) {
   return ['name', 'description', 'faces', 'back'].some(key => Object.hasOwn(changes, key))
     || Object.keys(changes).some(key => /^(faces|back)\./.test(key))
-    || ['font', 'fontSize', 'hideHeadings'].some(key => [key, `-=${key}`].some(field => Object.hasOwn(changes, `flags.${MODULE_ID}.${field}`)
+    || ['font', 'fontSize', 'hideHeadings', 'rewardEntries'].some(key => [key, `-=${key}`].some(field => Object.hasOwn(changes, `flags.${MODULE_ID}.${field}`)
       || Object.hasOwn(changes.flags?.[MODULE_ID] || {}, field)));
 }
 function isSyncGM() {
@@ -643,6 +652,8 @@ async function syncQuestCopies(source) {
     for (const [key, value] of Object.entries({ font: validFont(questFlag(source, 'font')), fontSize: validFontSize(questFlag(source, 'fontSize')), hideHeadings: questFlag(source, 'hideHeadings') === true })) {
       if (questFlag(copy, key) !== value) update[`flags.${MODULE_ID}.${key}`] = value;
     }
+    const rewards = questFlag(source, 'rewardEntries') || [];
+    if (JSON.stringify(questFlag(copy, 'rewardEntries') || []) !== JSON.stringify(rewards)) update[`flags.${MODULE_ID}.rewardEntries`] = rewards;
     if (Number.isInteger(copy.face) && copy.face >= data.faces.length) update.face = 0;
     // Never copy status, objectiveChecks, notes, ownership, sort, origin or drawn.
     if (Object.keys(update).length > 1) await hand.updateEmbeddedDocuments('Card', [update]);
@@ -657,6 +668,331 @@ function queueQuestSync(source) {
   questSyncQueues.set(key, task);
   task.finally(() => { if (questSyncQueues.get(key) === task) questSyncQueues.delete(key); });
   return task;
+}
+
+// Reward definitions belong to the source quest. Receipts live in a GM-written
+// world setting, never on a player-editable Hand copy or in source-content sync.
+const REWARD_COINS = ['cp', 'sp', 'ep', 'gp', 'pp'];
+const REWARD_ITEM_TYPES = ['weapon', 'equipment', 'consumable', 'tool', 'loot', 'container', 'feat', 'spell'];
+const rewardID = () => foundry.utils.randomID();
+function rewardInteger(value, label, minimum = 1) {
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n < minimum || n > 1000000) throw Error(`${label} must be a whole number from ${minimum} to 1,000,000.`);
+  return n;
+}
+function normalizeRewards(raw) {
+  const rows = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!Array.isArray(rows) || rows.length > 50) throw Error('Use no more than 50 reward entries.');
+  const ids = new Set();
+  return rows.map(row => {
+    if (!row || !/^[a-zA-Z0-9]{8,32}$/.test(row.id) || ids.has(row.id)) throw Error('Invalid or duplicate reward ID.');
+    ids.add(row.id);
+    const base = { id: row.id, kind: row.kind };
+    if (row.kind === 'currency') {
+      if (!REWARD_COINS.includes(row.coin)) throw Error('Choose a supported coin denomination.');
+      return { ...base, coin: row.coin, amount: rewardInteger(row.amount, 'Currency') };
+    }
+    const name = String(row.name || '').trim();
+    if (!name || name.length > 200) throw Error('Give each item or custom reward a name (up to 200 characters).');
+    if (row.kind === 'item') {
+      if (typeof row.uuid !== 'string' || row.uuid.length > 500 || !/^(Item\.|Actor\.[^.]+\.Item\.|Compendium\.)/.test(row.uuid)) throw Error('Drop a world or compendium Item into Rewards.');
+      return { ...base, name, uuid: row.uuid, quantity: rewardInteger(row.quantity, 'Item quantity') };
+    }
+    if (row.kind !== 'custom') throw Error('Unknown reward type.');
+    const description = String(row.description || '').trim();
+    if (description.length > 5000) throw Error('Custom reward text is too long.');
+    return { ...base, name, description };
+  });
+}
+function rewardLabel(row) {
+  return row.kind === 'currency' ? `${row.amount} ${row.coin}` : row.kind === 'item' ? `${row.quantity} × ${row.name}` : row.name;
+}
+function rewardListHTML(rows) {
+  return rows.length ? `<section class="qv-grant-rewards"><ul>${rows.map(row => `<li>${escapeHTML(rewardLabel(row))}${row.kind === 'custom' && row.description ? `<br><small>${escapeHTML(row.description).replace(/\n/g, '<br>')}</small>` : ''}</li>`).join('')}</ul></section>` : '';
+}
+function bindRewardEditor(host, initial) {
+  let rows = structuredClone(initial);
+  host.dataset.ready = 'true';
+  host.innerHTML = `<p>Currency is a total to split. Items go to one chosen character. Custom boons become descriptive features without automatic effects.</p>
+    <div class="qv-reward-rows"></div><input type="hidden" name="rewardData">
+    <div class="qv-reward-add"><button type="button" data-add="currency">Add Currency</button><button type="button" data-add="custom">Add Boon / Other</button></div>
+    <div class="qv-reward-drop" tabindex="0">Drop an Item from the Items sidebar or a compendium here</div>`;
+  const save = () => { host.querySelector('[name="rewardData"]').value = JSON.stringify(rows); };
+  const paint = () => {
+    host.querySelector('.qv-reward-rows').innerHTML = rows.map(row => `<fieldset data-reward-id="${row.id}"><legend>${row.kind === 'currency' ? 'Currency' : row.kind === 'item' ? 'Item' : 'Boon / Other'}</legend>
+      ${row.kind === 'currency' ? `<label>Amount<input type="number" data-field="amount" min="1" max="1000000" step="1" value="${row.amount}" required></label><label>Coin<select data-field="coin">${REWARD_COINS.map(c => `<option${row.coin === c ? ' selected' : ''}>${c}</option>`).join('')}</select></label>`
+        : row.kind === 'item' ? `<strong>${escapeHTML(row.name)}</strong><label>Quantity<input type="number" data-field="quantity" min="1" max="1000000" step="1" value="${row.quantity}" required></label>`
+        : `<label>Name<input data-field="name" value="${escapeHTML(row.name)}" maxlength="200" required></label><label>Description<textarea data-field="description" maxlength="5000" rows="2">${escapeHTML(row.description)}</textarea></label>`}
+      <button type="button" data-remove>Remove</button></fieldset>`).join('');
+    save();
+  };
+  host.addEventListener('input', event => {
+    const field = event.target.dataset.field;
+    const row = rows.find(r => r.id === event.target.closest('[data-reward-id]')?.dataset.rewardId);
+    if (row && ['amount', 'coin', 'quantity', 'name', 'description'].includes(field)) { row[field] = event.target.value; save(); }
+  });
+  host.addEventListener('click', event => {
+    const add = event.target.closest('[data-add]');
+    if (add) {
+      if (rows.length >= 50) return ui.notifications.warn('Use no more than 50 reward entries.');
+      rows.push(add.dataset.add === 'currency' ? { id: rewardID(), kind: 'currency', amount: 50, coin: 'gp' } : { id: rewardID(), kind: 'custom', name: '', description: '' });
+      paint();
+    }
+    const remove = event.target.closest('[data-remove]');
+    if (remove) { rows = rows.filter(r => r.id !== remove.closest('[data-reward-id]').dataset.rewardId); paint(); }
+  });
+  host.addEventListener('dragover', event => event.preventDefault());
+  host.addEventListener('drop', async event => {
+    event.preventDefault(); event.stopPropagation();
+    try {
+      if (!game.user.isGM) throw Error('Only the GM can configure rewards.');
+      const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+      if (data.type !== 'Item' || typeof data.uuid !== 'string') throw Error('Drop an Item from the sidebar or a compendium.');
+      const item = await fromUuid(data.uuid);
+      if (item?.documentName !== 'Item' || !REWARD_ITEM_TYPES.includes(item.type)) throw Error('Use equipment, consumables, loot, spells or features. Classes and advancement packages are not supported.');
+      if (rows.length >= 50) throw Error('Use no more than 50 reward entries.');
+      rows.push({ id: rewardID(), kind: 'item', name: item.name, uuid: item.uuid, quantity: 1 });
+      paint();
+    } catch (err) { ui.notifications.error(err.message); }
+  });
+  paint();
+}
+function assertRewardGM() {
+  if (!game.user.isGM) throw Error('Only the GM can hand out rewards.');
+  if (game.system?.id !== 'dnd5e') throw Error('Reward distribution currently supports the D&D Fifth Edition system.');
+  if (!isSyncGM()) throw Error('The active GM must hand out or configure rewards.');
+}
+function rewardSource(card) {
+  assertRewardGM();
+  if (isConditionCard(card) || !card.parent || card.parent.cards?.get(card.id) !== card) throw Error('Open an existing quest card.');
+  const deck = card.parent.type === 'deck' ? card.parent : game.cards.get(questOriginId(card));
+  const source = deck?.cards?.get(card.id);
+  if (deck?.type !== 'deck' || !getSelectedDeckIds().includes(deck.id) || isConditionsDeck(deck) || !source || isConditionCard(source)) throw Error('The original quest must exist in a configured quest deck.');
+  return source;
+}
+function rewardKey(source) { return `${source.parent.id}_${source.id}`; }
+function rewardHistory(source) { return structuredClone(game.settings.get(MODULE_ID, 'rewardLedger')?.[rewardKey(source)] || []); }
+async function writeRewardHistory(source, history) {
+  assertRewardGM();
+  const ledger = structuredClone(game.settings.get(MODULE_ID, 'rewardLedger') || {});
+  ledger[rewardKey(source)] = history;
+  await game.settings.set(MODULE_ID, 'rewardLedger', ledger);
+}
+// One queue covers all quests on the active GM's client, including recovery and setup.
+let rewardQueue = Promise.resolve();
+function queueRewardWork(work) {
+  const result = rewardQueue.then(work);
+  rewardQueue = result.catch(() => {});
+  return result;
+}
+function rewardCharacters() {
+  return Array.from(game.actors?.values() || []).filter(a => a.type === 'character')
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+async function prepareRewardPlan(card, request) {
+  const source = rewardSource(card), definitions = normalizeRewards(questFlag(source, 'rewardEntries') || []);
+  const history = rewardHistory(source);
+  if (history.some(r => r.state === 'pending')) throw Error('An earlier award needs review. Check its recipients before handing out more rewards.');
+  if (request.recoveryId) {
+    const previous = history.find(r => r.id === request.recoveryId && r.state === 'reviewed');
+    const missing = previous?.steps.filter(s => s.state === 'skipped') || [];
+    if (!missing.length) throw Error('This award has no confirmed missing rewards.');
+    const steps = [];
+    for (const original of missing) {
+      const resolved = await prepareRewardPlan(card, { repeat: true, rows: [{ id: original.rewardId, actors: [original.actorId] }] });
+      const step = resolved.steps[0];
+      // Retry the original allocation, not the entire party reward for one character.
+      if (step.kind === 'currency') { step.amount = original.amount; step.label = original.label; }
+      steps.push(step);
+    }
+    return { source, steps, signature: JSON.stringify({ definitions, steps, recoveryId: request.recoveryId }) };
+  }
+  if (!Array.isArray(request.rows) || !request.rows.length || new Set(request.rows.map(r => r.id)).size !== request.rows.length) throw Error('Select at least one distinct reward.');
+  const steps = [];
+  for (const choice of request.rows) {
+    const row = definitions.find(r => r.id === choice.id);
+    if (!row) throw Error('Rewards changed. Reopen Give Rewards.');
+    if (!request.repeat && history.some(r => r.steps.some(s => s.rewardId === row.id && s.state === 'done'))) throw Error(`${rewardLabel(row)} has already been awarded. Explicitly enable Award Again to repeat it.`);
+    const ids = [...new Set(choice.actors || [])];
+    if (!ids.length || (row.kind === 'item' && ids.length !== 1)) throw Error(`Choose ${row.kind === 'item' ? 'one recipient' : 'recipients'} for ${rewardLabel(row)}.`);
+    const actors = ids.map(id => game.actors.get(id));
+    if (actors.some(a => !a || a.type !== 'character' || !a.isOwner)) throw Error('A selected character is missing or not editable.');
+    let itemData;
+    if (row.kind === 'item') {
+      const item = await fromUuid(row.uuid);
+      if (item?.documentName !== 'Item' || !REWARD_ITEM_TYPES.includes(item.type)) throw Error(`The linked item ${row.name} is unavailable or unsupported.`);
+      itemData = item.toObject();
+      delete itemData._id; delete itemData.folder; delete itemData.ownership; delete itemData.sort; delete itemData._stats;
+      if (Object.hasOwn(itemData.system, 'quantity')) itemData.system.quantity = row.quantity;
+      else if (row.quantity !== 1) throw Error(`${row.name} does not support quantities. Use quantity 1.`);
+      if (Object.hasOwn(itemData.system, 'container')) itemData.system.container = null;
+      if (Object.hasOwn(itemData.system, 'equipped')) itemData.system.equipped = false;
+      if (Object.hasOwn(itemData.system, 'attuned')) itemData.system.attuned = false;
+      if (itemData.system.attunement === 2) itemData.system.attunement = 1;
+      // Preserve internal activity/effect IDs. Never copy another actor's advancement links.
+      if (itemData.system.advancement?.length) throw Error(`${row.name} contains advancements. Add it manually through the character sheet.`);
+    } else if (row.kind === 'custom') {
+      itemData = { name: row.name, type: 'feat', img: QUEST_ICON, system: { description: { value: `<p>${escapeHTML(row.description).replace(/\n/g, '<br>')}</p><p>Reward from ${escapeHTML(source.name)}.</p>` } } };
+    }
+    actors.forEach((actor, i) => {
+      const amount = row.kind === 'currency' ? Math.floor(row.amount / actors.length) + (i < row.amount % actors.length ? 1 : 0) : null;
+      if (amount === 0) return;
+      if (row.kind === 'currency') {
+        const balance = actor.system?.currency?.[row.coin];
+        if (typeof balance !== 'number' || !Number.isFinite(balance) || balance < 0 || balance + amount > Number.MAX_SAFE_INTEGER) throw Error(`${actor.name} has an unsupported ${row.coin} balance.`);
+      }
+      steps.push({ rewardId: row.id, actorId: actor.id, actorName: actor.name, label: row.kind === 'currency' ? `${amount} ${row.coin}` : rewardLabel(row), kind: row.kind, coin: row.coin || null, amount, itemData: itemData ? structuredClone(itemData) : null, state: 'waiting' });
+    });
+  }
+  const signature = JSON.stringify({ definitions, steps, repeat: request.repeat === true });
+  return { source, steps, signature };
+}
+async function awardQuestRewards(card, request, expectedSignature) {
+  return queueRewardWork(async () => {
+    const plan = await prepareRewardPlan(card, request);
+    if (plan.signature !== expectedSignature) throw Error('The rewards or recipients changed. Review the distribution again.');
+    const history = rewardHistory(plan.source);
+    const receipt = { id: rewardID(), quest: plan.source.name, gm: game.user.name || game.user.id, date: new Date().toISOString(), state: 'pending', steps: plan.steps.map(({ itemData, ...step }) => step) };
+    if (request.recoveryId) {
+      const previous = history.find(r => r.id === request.recoveryId);
+      previous.steps.filter(s => s.state === 'skipped').forEach(s => { s.state = 'retried'; s.retryReceipt = receipt.id; });
+      receipt.recoveryOf = previous.id;
+    }
+    history.push(receipt);
+    // Persist intent before touching a sheet; an interrupted write is never silently retried.
+    await writeRewardHistory(plan.source, history);
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i], recorded = receipt.steps[i];
+      try {
+        assertRewardGM();
+        const actor = game.actors.get(step.actorId);
+        if (!actor?.isOwner || actor.type !== 'character') throw Error('Recipient is no longer available.');
+        recorded.state = 'pending';
+        await writeRewardHistory(plan.source, history);
+        if (step.kind === 'currency') {
+          const balance = actor.system.currency[step.coin];
+          if (typeof balance !== 'number' || !Number.isFinite(balance) || balance < 0 || balance + step.amount > Number.MAX_SAFE_INTEGER) throw Error('Currency balance is no longer supported.');
+          const updated = await actor.update({ [`system.currency.${step.coin}`]: balance + step.amount });
+          if (!updated || actor.system.currency[step.coin] !== balance + step.amount) throw Error('Currency update was not confirmed.');
+        } else {
+          const data = structuredClone(step.itemData);
+          data.flags ??= {}; data.flags[MODULE_ID] ??= {};
+          data.flags[MODULE_ID].rewardReceipt = `${receipt.id}:${i}`;
+          const created = await actor.createEmbeddedDocuments('Item', [data], { renderSheet: false });
+          if (created.length !== 1) throw Error('Item creation was not confirmed.');
+          recorded.itemId = created[0].id;
+        }
+        recorded.state = 'done';
+        await writeRewardHistory(plan.source, history);
+      } catch (err) {
+        // Leave the persisted receipt pending if a write or its acknowledgement fails.
+        throw Error(`Distribution stopped: ${err.message} Open Give Rewards and review the pending award before retrying.`);
+      }
+    }
+    receipt.state = 'done';
+    await writeRewardHistory(plan.source, history);
+    return receipt;
+  });
+}
+async function resolveRewardReceipt(card, receiptId, decisions) {
+  return queueRewardWork(async () => {
+    const source = rewardSource(card), history = rewardHistory(source), receipt = history.find(r => r.id === receiptId);
+    if (!receipt || receipt.state !== 'pending') throw Error('This award no longer needs review.');
+    receipt.steps.forEach((step, i) => {
+      if (step.state === 'done') return;
+      if (!['done', 'skipped'].includes(decisions[i])) throw Error('Confirm whether each outstanding entry was received.');
+      step.state = decisions[i];
+    });
+    receipt.state = 'reviewed'; receipt.reviewedAt = new Date().toISOString();
+    await writeRewardHistory(source, history);
+  });
+}
+async function saveQuestRewards(card, rows) {
+  return queueRewardWork(async () => {
+    const source = rewardSource(card), normalized = normalizeRewards(rows);
+    const current = normalizeRewards(questFlag(source, 'rewardEntries') || []);
+    if (rewardHistory(source).length) throw Error('Rewards with distribution history cannot be changed. Create a new quest for a new reward package.');
+    const template = document.createElement('template'); template.innerHTML = source.faces?.[0]?.text || '';
+    template.content.querySelectorAll('.qv-grant-rewards').forEach(node => node.remove());
+    const front = template.innerHTML + rewardListHTML(normalized);
+    const faces = source.toObject().faces;
+    if (!faces?.length) throw Error('This card needs a front face before rewards can be added.');
+    faces[0].text = front;
+    await source.update({ faces, [`flags.${MODULE_ID}.rewardEntries`]: normalized });
+    return { source, previous: current };
+  });
+}
+function rewardReceiptHTML(history) {
+  return history.length ? history.map(r => `<details class="qv-reward-receipt"${r.state === 'pending' ? ' open' : ''}><summary>${escapeHTML(r.date)} — ${r.state === 'pending' ? 'Needs review' : 'Recorded'}</summary><p>GM: ${escapeHTML(r.gm)}</p><ul>${r.steps.map(s => `<li>${escapeHTML(s.actorName)}: ${escapeHTML(s.label)} — ${escapeHTML(s.state)}</li>`).join('')}</ul></details>`).join('') : '<p>No rewards handed out yet.</p>';
+}
+async function openQuestRewardSetup(card) {
+  const source = rewardSource(card);
+  if (rewardHistory(source).length) throw Error('This reward package already has a distribution history.');
+  const dialog = new foundry.applications.api.DialogV2({
+    window: { title: `Set Up Rewards — ${source.name}`, resizable: true }, position: { width: 560 }, form: { closeOnSubmit: false },
+    content: '<div data-qv-reward-editor></div><p>Saved on the original deck card. Existing descriptive reward text is kept and is not automatically awarded.</p>',
+    buttons: [{ action: 'save', label: 'Save Rewards', callback: async (_e, _b, d) => {
+      try { await saveQuestRewards(card, d.element.querySelector('[name="rewardData"]').value); await d.close(); await openQuestRewards(card); }
+      catch (err) { ui.notifications.error(err.message); }
+    } }, { action: 'cancel', label: 'Cancel', type: 'button', callback: (_e, _b, d) => d.close() }]
+  });
+  dialog.addEventListener('render', () => bindRewardEditor(dialog.element.querySelector('[data-qv-reward-editor]'), normalizeRewards(questFlag(source, 'rewardEntries') || [])), { once: true });
+  dialog.render({ force: true }); return dialog;
+}
+async function openRewardReview(card, receipt) {
+  const dialog = new foundry.applications.api.DialogV2({
+    window: { title: 'Review interrupted rewards', resizable: true }, position: { width: 560 }, form: { closeOnSubmit: false },
+    content: `<p>Check each character sheet first. This records what happened; it does not add or remove anything.</p>${receipt.steps.map((s, i) => `<p>${escapeHTML(s.actorName)} — ${escapeHTML(s.label)} ${s.state === 'done' ? '(already confirmed)' : `<select data-decision="${i}" required><option value="">Choose after checking the sheet</option><option value="done">Confirmed received</option><option value="skipped">Confirmed not received</option></select>`}</p>`).join('')}`,
+    buttons: [{ action: 'resolve', label: 'Save Review', callback: async (_e, _b, d) => {
+      try { const decisions = Object.fromEntries(Array.from(d.element.querySelectorAll('[data-decision]'), el => [el.dataset.decision, el.value])); await resolveRewardReceipt(card, receipt.id, decisions); await d.close(); await openQuestRewards(card); }
+      catch (err) { ui.notifications.error(err.message); }
+    } }, { action: 'cancel', label: 'Close', type: 'button', callback: (_e, _b, d) => d.close() }]
+  }); dialog.render({ force: true }); return dialog;
+}
+async function openQuestRewards(card) {
+  try {
+    const source = rewardSource(card), rows = normalizeRewards(questFlag(source, 'rewardEntries') || []), history = rewardHistory(source), actors = rewardCharacters();
+    const pending = history.find(r => r.state === 'pending');
+    const missing = history.find(r => r.state === 'reviewed' && r.steps.some(s => s.state === 'skipped'));
+    const content = `<div class="qv-reward-distribution"><p>Choose rewards and recipients, then review the exact distribution. Completing or showing a quest never pays rewards automatically.</p>
+      ${!rows.length ? '<p>No distributable rewards yet. Use Set Up Rewards to add currency, items or boons to this existing quest.</p>' : rows.map(row => {
+        const awarded = history.some(r => r.steps.some(s => s.rewardId === row.id && s.state === 'done'));
+        return `<fieldset data-award-row="${row.id}"><legend><label><input type="checkbox" data-award-select> ${escapeHTML(rewardLabel(row))}${awarded ? ' — Already awarded' : ''}</label></legend>
+          ${row.kind === 'currency' ? '<p>Total split equally; leftover coins go to the first selected characters listed below.</p>' : row.kind === 'custom' ? '<p>Add a descriptive feature to each selected character. No automatic effects.</p>' : '<p>Give this quantity to one character. Containers are copied empty.</p>'}
+          ${actors.length ? row.kind === 'item' ? `<select data-recipient><option value="">Choose character</option>${actors.map(a => `<option value="${a.id}">${escapeHTML(a.name)}</option>`).join('')}</select>` : actors.map(a => `<label class="qv-reward-recipient"><input type="checkbox" data-recipient value="${a.id}"> ${escapeHTML(a.name)}</label>`).join('') : '<p>No character actors found.</p>'}</fieldset>`;
+      }).join('')}
+      ${history.length ? '<label><input type="checkbox" data-repeat> Award Again: allow selected rewards that were already received</label>' : ''}
+      <h3>Distribution history</h3>${rewardReceiptHTML(history)}</div>`;
+    const dialog = new foundry.applications.api.DialogV2({
+      window: { title: `Give Rewards — ${source.name}`, resizable: true }, position: { width: 600 }, form: { closeOnSubmit: false }, content,
+      buttons: [...(pending ? [{ action: 'recover', label: 'Review Interrupted Award', callback: async (_e, _b, d) => { await openRewardReview(card, pending); await d.close(); } }] : rows.length ? [{ action: 'review', label: 'Review Distribution', callback: async (_e, _b, d) => {
+        try {
+          const request = { repeat: d.element.querySelector('[data-repeat]')?.checked === true, rows: Array.from(d.element.querySelectorAll('[data-award-row]')).filter(el => el.querySelector('[data-award-select]').checked).map(el => ({ id: el.dataset.awardRow, actors: Array.from(el.querySelectorAll('[data-recipient]')).filter(input => input.tagName === 'SELECT' ? input.value : input.checked).map(input => input.value) })) };
+          const plan = await prepareRewardPlan(card, request);
+          await openRewardConfirmation(card, request, plan, d);
+        } catch (err) { ui.notifications.error(err.message); }
+      } }] : []), ...(!pending && missing ? [{ action: 'retryMissing', label: 'Review Missing Rewards', callback: async (_e, _b, d) => {
+        try { const request = { recoveryId: missing.id }; await openRewardConfirmation(card, request, await prepareRewardPlan(card, request), d); }
+        catch (err) { ui.notifications.error(err.message); }
+      } }] : []), ...(!history.length ? [{ action: 'setup', label: 'Set Up Rewards', callback: async (_e, _b, d) => { try { await openQuestRewardSetup(card); await d.close(); } catch (err) { ui.notifications.error(err.message); } } }] : []), { action: 'close', label: 'Close', callback: (_e, _b, d) => d.close() }]
+    }); dialog.render({ force: true }); return dialog;
+  } catch (err) { ui.notifications.error(err.message); }
+}
+async function openRewardConfirmation(card, request, plan, parent) {
+  let submitting = false;
+  const dialog = new foundry.applications.api.DialogV2({
+    window: { title: 'Confirm Rewards', resizable: true }, position: { width: 520 }, form: { closeOnSubmit: false },
+    content: `<p>${request.repeat ? '<strong>Award Again is enabled. This can give additional copies of previously awarded rewards.</strong>' : 'These rewards will be added to the following character sheets:'}</p><ul>${plan.steps.map(s => `<li>${escapeHTML(s.actorName)} — ${escapeHTML(s.label)}</li>`).join('')}</ul>`,
+    buttons: [{ action: 'give', label: 'Give Rewards', callback: async (_e, button, d) => {
+      if (submitting) return; submitting = true; if (button) button.disabled = true;
+      try {
+        await awardQuestRewards(card, request, plan.signature);
+        ui.notifications.info('Rewards handed out and recorded.'); await d.close(); await parent.close(); await openQuestRewards(card);
+      } catch (err) {
+        await d.close(); await parent.close(); await openQuestRewards(card); ui.notifications.error(err.message);
+      } finally { submitting = false; }
+    } }, { action: 'cancel', label: 'Cancel', type: 'button', default: true, callback: (_e, _b, d) => d.close() }]
+  }); dialog.render({ force: true }); return dialog;
 }
 
 function getQuestStatus(card) {
@@ -748,7 +1084,7 @@ async function showQuestCard(card) {
       label: "Show Card to Players",
       icon: "fa-solid fa-eye",
       callback: () => chooseCardRecipients(card, showingFront)
-    }] : []), ...(canEditQuestProgress(card) ? [{ action: "notes", label: "Notes", icon: "fa-solid fa-note-sticky", callback: () => openQuestNotes(card) }] : []), {
+    }] : []), ...(game.user.isGM && !isConditionCard(card) ? [{ action: 'rewards', label: 'Give Rewards', icon: 'fa-solid fa-gift', callback: () => openQuestRewards(card) }] : []), ...(canEditQuestProgress(card) ? [{ action: "notes", label: "Notes", icon: "fa-solid fa-note-sticky", callback: () => openQuestNotes(card) }] : []), {
       action: "close",
       label: "Close",
       icon: "fa-solid fa-xmark",
