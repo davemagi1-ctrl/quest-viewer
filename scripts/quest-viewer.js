@@ -1093,6 +1093,42 @@ function buildCardHTML(card, showingFront) {
   `;
 }
 
+const returningCards = new Set();
+
+function returnCardSource(card) {
+  if (!game.user.isGM || card.parent?.type !== 'hand'
+    || card.parent.cards.get(card.id) !== card || isConditionCard(card)) return null;
+  const source = game.cards.get(questOriginId(card));
+  if (source?.type !== 'deck' || isConditionsDeck(source) || !source.cards?.get?.(card.id)) return null;
+  return source;
+}
+
+async function returnQuestCard(card) {
+  const key = `${card.parent?.id}_${card.id}`;
+  if (returningCards.has(key)) return false;
+  returningCards.add(key);
+  try {
+    const source = returnCardSource(card);
+    if (!source) throw new Error('This card cannot be returned: GM access and its original deck card are required.');
+    const confirmed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: 'Return Card to Deck' },
+      content: `<p>Return <strong>${escapeHTML(card.name)}</strong> from <strong>${escapeHTML(card.parent.name || 'this Hand')}</strong> to <strong>${escapeHTML(source.name)}</strong>?</p><p>Only this card is removed from the Hand. Its notes and progress on this copy will be lost. Rewards already handed out are not reversed, and reward history is retained.</p>`,
+      rejectClose: false
+    });
+    if (!confirmed) return false;
+    if (returnCardSource(card) !== source) throw new Error('The card or its original deck is no longer available. Refresh the Hand and try again.');
+    await card.recall();
+    if (card.parent.cards.has(card.id) || source.cards.get(card.id)?.drawn !== false) {
+      throw new Error('The return did not finish. Check the Hand and deck before trying again.');
+    }
+    ui.notifications.info(`${card.name} returned to ${source.name}.`);
+    return true;
+  } catch (err) {
+    ui.notifications.error(err.message);
+    return false;
+  } finally { returningCards.delete(key); }
+}
+
 async function showQuestCard(card) {
   const DialogV2 = foundry.applications.api.DialogV2;
   let showingFront = true;
@@ -1104,7 +1140,9 @@ async function showQuestCard(card) {
     },
     content: buildCardHTML(card, showingFront),
     form: { closeOnSubmit: false },
-    buttons: [...(game.user.isGM ? [{
+    buttons: [...(returnCardSource(card) ? [{ action: 'returnToDeck', label: 'Return to Deck', icon: 'fa-solid fa-arrow-rotate-left', callback: async (_event, _button, dialog) => {
+      if (await returnQuestCard(card)) await dialog.close();
+    } }] : []), ...(game.user.isGM ? [{
       action: "showPlayers",
       label: "Show Card to Players",
       icon: "fa-solid fa-eye",
@@ -1296,7 +1334,7 @@ async function addViewCardButtons(app, html) {
   addSelectiveDealControls(app, root, hand);
   const token = {};
   handRenderTokens.set(app, token);
-  root.querySelectorAll(".qv-view-card, .qv-hand-status").forEach(button => button.remove());
+  root.querySelectorAll(".qv-view-card, .qv-hand-status, .qv-return-card").forEach(button => button.remove());
   if (!canManuallyViewHand(hand)) return;
 
   try {
@@ -1338,6 +1376,21 @@ async function addViewCardButtons(app, html) {
         }
       });
       row.append(button);
+      if (returnCardSource(card)) {
+        const takeBack = root.ownerDocument.createElement('button');
+        takeBack.type = 'button';
+        takeBack.className = 'qv-return-card';
+        takeBack.textContent = 'Return to Deck';
+        takeBack.setAttribute('aria-label', `Return to Deck: ${card.name}`);
+        takeBack.addEventListener('click', async event => {
+          event.preventDefault(); event.stopPropagation();
+          if (takeBack.disabled) return;
+          takeBack.disabled = true;
+          try { await returnQuestCard(card); }
+          finally { takeBack.disabled = false; }
+        });
+        row.append(takeBack);
+      }
       if (isConditionCard(card)) continue;
       const badge = root.ownerDocument.createElement("span");
       badge.className = "qv-hand-status";
@@ -1759,3 +1812,4 @@ async function createConditionsDeck() {
   try { return await conditionsDeckCreation; }
   finally { conditionsDeckCreation = null; }
 }
+

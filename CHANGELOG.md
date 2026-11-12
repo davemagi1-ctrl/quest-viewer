@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.0
+
+- Add GM-only Return to Deck beside View Card in quest Hands and inside the card viewer.
+- Confirm the individual return, recheck access and source availability, and use Foundry native recall.
+- Leave other cards and reward payout history untouched; explicitly warn that Hand-copy notes and progress are removed.
+- Exclude reference cards and reject missing source cards or repeated concurrent return attempts.
+
 ## 1.13.1
 
 - Detect changed shared notes before saving; preserve the local draft and display the latest text for comparison and merging.

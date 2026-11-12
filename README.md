@@ -32,7 +32,7 @@ Existing installations can use Foundry's module updater.
 
 For manual installation, download the module ZIP from the [latest release](https://github.com/davemagi1-ctrl/quest-viewer/releases/latest), then extract its `quest-viewer/` folder into `Data/modules/`. Use the attached module ZIP, rather than GitHub's automatically generated source archive.
 
-The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.13.1**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
+The package ID and folder remain `quest-viewer` so existing settings and update links continue to work. Current release: **1.14.0**. The manifest declares Foundry **13 minimum** and **14 verified**; see testing notes below.
 
 ## Create a quest card
 
@@ -154,7 +154,7 @@ Rules are adapted from SRD 5.2.1 under CC BY 4.0, with attribution in each refer
 
 ## Testing and support
 
-Version 1.13.1 passed **256 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Reward checks cover exact splits, inventory copies, custom features, GM permissions, duplicate prevention, stale confirmations, interruptions, recovery, and the editor/distribution controls. Syntax and ZIP structure were also checked.
+Version 1.14.0 passed **273 automated browser checks** using Foundry 14.365 templates with simulated documents and hooks. Checks include existing behavior, player progress permissions, notes, checkboxes, sharing without status reset, source-content synchronization preserving progress, selected dealing, headings, and fonts. Reward checks cover exact splits, inventory copies, custom features, GM permissions, duplicate prevention, stale confirmations, interruptions, recovery, and the editor/distribution controls. Syntax and ZIP structure were also checked.
 
 Full live multiplayer testing has not been completed; the Foundry 13 legacy render hook was simulated.
 Before a session, test viewing and flipping as a player, then deal a card to confirm your popup/chat settings.
@@ -164,3 +164,9 @@ When [reporting a problem](https://github.com/davemagi1-ctrl/quest-viewer/issues
 ## License
 
 Module code: [MIT](LICENSE). Adapted rules content: [CC BY 4.0 attribution](RULES-LICENSE.md).
+
+### Return a card dealt by mistake
+
+As GM, open the receiving Hand and choose **Return to Deck** beside the quest card, or open its viewer and choose **Return to Deck**. Confirm to remove only that copy and make the original available to deal again. The original deck and card must still exist. The Hand copy’s notes and progress are removed; rewards already distributed and payout history are retained. Reference cards are excluded.
+
+Return checks use simulated Foundry documents; live multiplayer testing remains outstanding.
